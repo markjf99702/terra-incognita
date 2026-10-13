@@ -1,0 +1,16 @@
+{
+  "name": "Terra Incognita",
+  "short_name": "Terra Incognita",
+  "description": "Sketch a world. Rivers, realms and borders follow the land.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#E2E8EA",
+  "theme_color": "#E2E8EA",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

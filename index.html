@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Terra Incognita</title>
+<meta name="description" content="Make a map of a world that doesn't exist. Roll a random one or start from blank ocean and sketch coastlines, mountain ranges and rivers; rivers, lakes, climates and realm borders follow the land, and every town has a page for its story.">
+<meta property="og:title" content="Terra Incognita">
+<meta property="og:description" content="Sketch a world. Rivers, realms and borders follow the land.">
+<meta property="og:image" content="https://terra-incognita.junkdrawer.works/og.png">
+<meta property="og:url" content="https://terra-incognita.junkdrawer.works/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#E2E8EA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0C1317" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preload" href="fonts/im-fell-english.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<noscript><p style="padding:24px;font:16px system-ui,sans-serif">Terra Incognita needs JavaScript to draw the map.</p></noscript>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><circle cx="12" cy="12" r="10.6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M12 1.8 14 10 12 12 10 10Z" fill="currentColor"/><path d="M12 22.2 10 14 12 12 14 14Z" fill="currentColor" opacity=".45"/><path d="M1.8 12 10 10 12 12 10 14Z" fill="currentColor" opacity=".45"/><path d="M22.2 12 14 14 12 12 14 10Z" fill="currentColor" opacity=".45"/></svg>
+      <span class="brand-name">Terra Incognita</span>
+    </div>
+    <label class="sr" for="worldName">World name</label>
+    <input id="worldName" class="world-name" spellcheck="false" autocomplete="off">
+    <div class="top-actions">
+      <button class="btn" id="btnUndo" disabled title="Undo (Ctrl+Z)" aria-label="Undo"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4 3 8l4 4"/><path d="M3 8h8.5a4.5 4.5 0 0 1 0 9H9"/></svg><span class="lbl">Undo</span></button>
+      <button class="btn" id="btnRedo" disabled title="Redo (Ctrl+Shift+Z)" aria-label="Redo"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 4 4 4-4 4"/><path d="M17 8H8.5a4.5 4.5 0 0 0 0 9H11"/></svg><span class="lbl">Redo</span></button>
+      <div class="seg" role="group" aria-label="Map style">
+        <button id="styleTerrain" aria-pressed="true">Terrain</button><button id="styleAtlas" aria-pressed="false">Atlas</button>
+      </div>
+      <button class="btn primary" id="btnNew" aria-haspopup="menu" aria-expanded="false" aria-controls="newMenu"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M2.5 10h15M10 2.5c2.4 2.2 3.4 4.8 3.4 7.5s-1 5.3-3.4 7.5C7.6 15.3 6.6 12.7 6.6 10s1-5.3 3.4-7.5z"/></svg>New world</button>
+    </div>
+  </header>
+
+  <div class="menu" id="newMenu" role="menu" aria-label="New world" hidden>
+    <button role="menuitem" id="mnRandom"><b>Generate a world</b><span>Random coastlines, rivers and realms, all made for you.</span></button>
+    <button role="menuitem" id="mnBlank"><b>Start from blank ocean</b><span>Open water and nothing else. Sketch your own coastlines.</span></button>
+  </div>
+
+  <div class="body">
+    <nav class="tools" id="tools" aria-label="Tools"></nav>
+
+    <main class="stage">
+      <div class="toolopts" id="toolOpts"></div>
+      <div class="mapwrap" id="mapwrap">
+        <canvas id="map" aria-label="World map. Use the tools to sculpt land and place settlements."></canvas>
+        <div class="status" id="status" hidden></div>
+        <div class="zoom">
+          <button id="zIn" aria-label="Zoom in" title="Zoom in">+</button>
+          <button id="zOut" aria-label="Zoom out" title="Zoom out">&minus;</button>
+          <button id="zFit" aria-label="Show the whole map" title="Show the whole map (F)"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/></svg></button>
+        </div>
+        <div class="toast" id="toast" role="status" hidden></div>
+      </div>
+    </main>
+
+    <aside class="panel">
+      <div class="tabs" role="tablist" aria-label="Panels">
+        <button class="tab" role="tab" id="tab-inspect" aria-controls="pane-inspect" aria-selected="true">Inspect</button>
+        <button class="tab" role="tab" id="tab-codex" aria-controls="pane-codex" aria-selected="false">Codex</button>
+        <button class="tab" role="tab" id="tab-world" aria-controls="pane-world" aria-selected="false">World</button>
+      </div>
+      <section class="pane" id="pane-inspect" role="tabpanel" aria-labelledby="tab-inspect"></section>
+      <section class="pane" id="pane-codex" role="tabpanel" aria-labelledby="tab-codex" hidden>
+        <label class="sr" for="codexQ">Search</label>
+        <input id="codexQ" class="search" type="search" placeholder="Search places and realms" autocomplete="off">
+        <div id="codexList"></div>
+      </section>
+      <section class="pane" id="pane-world" role="tabpanel" aria-labelledby="tab-world" hidden>
+        <div class="section">
+          <h3>Generate</h3>
+          <div class="grid2">
+            <label for="wSeed">Seed<input id="wSeed" type="number" inputmode="numeric" min="1" max="999999"></label>
+            <label for="wShape">Shape<select id="wShape"></select></label>
+          </div>
+          <div class="row">
+            <button class="btn primary sm" id="wGen">Generate from seed</button>
+            <button class="btn sm" id="wDice">Random seed</button>
+            <button class="btn sm" id="wBlank">Start from blank ocean</button>
+          </div>
+          <p class="note">Generating replaces the current map. Undo brings it back.</p>
+        </div>
+        <div class="section">
+          <h3><label for="wSea">Sea level</label></h3>
+          <input type="range" id="wSea" min="0.40" max="0.60" step="0.002">
+          <div class="readout" id="wSeaOut"></div>
+        </div>
+        <div class="section">
+          <h3>Realms and places</h3>
+          <div class="row">
+            <button class="btn sm" id="wPopulate">Found new realms</button>
+            <button class="btn sm" id="wClear">Clear places and labels</button>
+          </div>
+          <p class="note">Found new realms replaces every place and label with a fresh set grown from the terrain.</p>
+        </div>
+        <div class="section">
+          <h3>Layers</h3>
+          <div class="checks">
+            <label><input type="checkbox" id="lyRealms">Realms and borders</label>
+            <label><input type="checkbox" id="lyRivers">Rivers</label>
+            <label><input type="checkbox" id="lyLabels">Map labels</label>
+            <label><input type="checkbox" id="lyNames">Place names</label>
+            <label><input type="checkbox" id="lyGrid">Graticule</label>
+          </div>
+        </div>
+        <div class="section">
+          <h3>Keep your world</h3>
+          <div class="row">
+            <button class="btn sm" id="wSaveFile">Save world file</button>
+            <button class="btn sm" id="wOpenFile">Open world file</button>
+            <button class="btn sm" id="wSavePng">Save map image</button>
+            <input type="file" id="wFile" accept=".json,application/json" hidden>
+          </div>
+          <p class="note" id="wSaveNote">Your world autosaves in this browser.</p>
+        </div>
+        <div class="section">
+          <h3>Shortcuts</h3>
+          <dl class="keys">
+            <dt>V P</dt><dd>Select, sketch</dd>
+            <dt>R L S</dt><dd>Raise, lower, smooth</dd>
+            <dt>W D</dt><dd>Wetter, drier</dd>
+            <dt>C M T E</dt><dd>Settle, landmark, label, erase</dd>
+            <dt>[ ]</dt><dd>Brush size</dd>
+            <dt>Space + drag</dt><dd>Pan with any tool</dd>
+            <dt>F</dt><dd>Show the whole map</dd>
+            <dt>Ctrl Z</dt><dd>Undo (add Shift to redo)</dd>
+            <dt>Delete</dt><dd>Remove the selected place or label</dd>
+          </dl>
+        </div>
+        <footer class="jd-foot">
+          <a href="https://junkdrawer.works/">Part of junkdrawer.works</a>
+          <span aria-hidden="true">·</span>
+          <a href="https://junkdrawer.works/privacy.html">Privacy</a>
+        </footer>
+      </section>
+    </aside>
+  </div>
+</div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "terra-incognita",
+  "private": true,
+  "type": "module",
+  "description": "Sketch a world. Rivers, realms and borders follow the land.",
+  "scripts": {
+    "start": "npx --yes http-server -c-1 -p 8080 .",
+    "test": "node test/e2e.mjs",
+    "build": "node scripts/build.mjs"
+  },
+  "devDependencies": {
+    "upng-js": "^2.1.0"
+  }
+}
