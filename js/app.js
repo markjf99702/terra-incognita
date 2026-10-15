@@ -1239,11 +1239,17 @@ function sketchLoop(pts, mode) {
   const dIn = chamfer(inside, bw, bh, 1), dOut = chamfer(inside, bw, bh, 0);
   let maxIn = 0; for (let i = 0; i < inside.length; i++) if (inside[i] && dIn[i] > maxIn) maxIn = dIn[i];
   const R = clamp(maxIn * 0.65, 4, 45), nz1 = sketchNoise(1), nz2 = sketchNoise(2), nz3 = sketchNoise(3);
+  // How far a cell lies inside the drawn coast (negative outside it), with the coast roughened.
+  const depth = (li, gx, gy) => (inside[li] ? dIn[li] - 0.5 : -(dOut[li] - 0.5)) + (amp ? fbm(nz1, gx * 0.07, gy * 0.07, 4) * amp + fbm(nz2, gx * 0.025, gy * 0.025, 3) * amp * 0.9 : 0);
+  if (mode === 'sea') {
+    let floods = false;
+    for (let y = 0; y < bh && !floods; y++) for (let x = 0; x < bw; x++) { const gx = bx0 + x, gy = by0 + y; if (h[gy * W + gx] >= sea && depth(y * bw + x, gx, gy) > 0) { floods = true; break; } }
+    if (!floods) { toast('Nothing to flood there. Draw the loop over land.'); return; }
+  }
   pushUndo({ h: true });
   for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) {
     const li = y * bw + x, gx = bx0 + x, gy = by0 + y, gi = gy * W + gx;
-    const sd = inside[li] ? dIn[li] - 0.5 : -(dOut[li] - 0.5);
-    const d = sd + (amp ? fbm(nz1, gx * 0.07, gy * 0.07, 4) * amp + fbm(nz2, gx * 0.025, gy * 0.025, 3) * amp * 0.9 : 0);
+    const d = depth(li, gx, gy);
     if (mode === 'land') {
       if (d > 0) {
         const t = smooth(0, R, d), hn = fbm(nz3, gx * 0.045, gy * 0.045, 4);
@@ -1948,7 +1954,7 @@ function bindWorldTab() {
     $('#wSeaOut').textContent = `${Math.round(landShare() * 100)}% of the map is land`;
   });
   $('#wSea').addEventListener('change', () => { seaEditing = false; recomputeAll(); markDirty(); });
-  $('#wPopulate').onclick = () => { pushUndo({ meta: true }); populate(1 + Math.floor(Math.random() * 999998)); ui.selected = null; recomputePolitics(); refreshPanels(); requestDraw(); markDirty(); toast('New realms founded.', { label: 'Undo', fn: undo }); };
+  $('#wPopulate').onclick = () => { if (!landShare()) { toast('New realms need dry land. Sketch some first.'); return; } pushUndo({ meta: true }); populate(1 + Math.floor(Math.random() * 999998)); ui.selected = null; recomputePolitics(); refreshPanels(); requestDraw(); markDirty(); toast('New realms founded.', { label: 'Undo', fn: undo }); };
   $('#wClear').onclick = () => { pushUndo({ meta: true }); world.places = []; world.labels = []; ui.selected = null; recomputePolitics(); refreshPanels(); requestDraw(); markDirty(); toast('Cleared every place and label.', { label: 'Undo', fn: undo }); };
   for (const k of ['realms', 'rivers', 'labels', 'names', 'grid']) $('#ly' + k[0].toUpperCase() + k.slice(1)).onchange = e => { ui.layers[k] = e.target.checked; requestDraw(); savePrefs(); };
   $('#wSaveFile').onclick = () => saveFile(slug() + '.json', serialize(), 'World file saved.');

@@ -107,10 +107,25 @@ st = await state();
 ok(st.land === 0 && st.places === 0 && st.shape === 'blank', 'blank ocean has no land and no places');
 ok(await S(() => document.querySelector('.tool[aria-pressed="true"]').dataset.tool === 'sketch'), 'the sketch tool is ready');
 
+// On open water there are no realms to found and nothing to flood, so nothing changes and it says so.
+await page.click('#tab-world');
+await page.click('#wPopulate');
+ok((await page.textContent('#toast')).startsWith('New realms need dry land') && (await state()).undo === st.undo, 'Found new realms on open water says it needs land');
+await page.click('.chip[data-v="sea"]');
+await drag([[300, 100], [360, 100], [360, 160], [300, 160], [300, 100]], 5);
+ok((await page.textContent('#toast')).startsWith('Nothing to flood') && (await state()).undo === st.undo, 'a sea loop on open water says there is nothing to flood');
+await page.click('.chip[data-v="land"]');
+
 // A loop raises land.
 await drag([[150, 80], [260, 66], [345, 96], [355, 170], [300, 232], [200, 238], [128, 192], [118, 120], [150, 80]], 5);
 st = await state();
 ok(st.land > 15000, `a sketched loop becomes land (${st.land} cells)`);
+
+// A sea loop across its coast floods some of it.
+await page.click('.chip[data-v="sea"]');
+await drag([[335, 115], [372, 115], [372, 148], [335, 148], [335, 115]], 5);
+const bitten = await state();
+ok(bitten.land < st.land, `a sea loop across the coast floods land (${st.land - bitten.land} cells)`);
 
 // A mountain range, without a lake in the valleys it blocks.
 await page.click('.chip[data-v="range"]');
