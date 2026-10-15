@@ -70,6 +70,8 @@ ok(await S(() => document.fonts.check('16px "IM Fell English"') && document.font
 let st = await state();
 ok(st.realms >= 2 && st.places >= 20 && st.rivers > 200 && st.labels >= 2, `the starting world has realms, towns, rivers and labels (${st.realms} realms, ${st.places} places)`);
 ok(await page.locator('#pane-inspect .welcome').isVisible(), 'the gazetteer greets you');
+const names = (await S(() => window.terra.places())).map((p) => p.name);
+ok(new Set(names).size === names.length, 'no two places share a name');
 
 // Borders come from the land, the capitals and their towns, so a reload brings back the same realms.
 const realmRows = () => S(() => {

@@ -561,12 +561,14 @@ function newRealm(tongue, rng) {
   const free = REALM_COLORS.filter(c => !used.has(c));
   return { name: makeName(tongue, rng, { realm: true }), title: pick(rng, TONGUES[tongue].titles), color: free.length ? pick(rng, free) : pick(rng, REALM_COLORS) };
 }
+// A name no other place has yet, so the Codex, rumors and directions never mean two places at once.
+function freshName(make) { let n = make(); for (let k = 0; k < 10 && world.places.some(q => q.name === n); k++) n = make(); return n; }
 function makePlace(kind, x, y, rng, o = {}) {
   const i = cellAt(x, y), own = D.owner[i];
   const tongue = o.tongue || (own >= 0 && D.realms[own] ? D.realms[own].tongue : pick(rng, TONGUE_IDS));
   const p = { id: world.nextId++, kind, x, y, tongue, name: '', lore: '', pop: 0 };
-  if (kind === 'landmark') { p.sub = o.sub || 'ruin'; p.name = landmarkName(p.sub, tongue, rng); }
-  else { p.name = makeName(tongue, rng); p.pop = rollPop(kind, i, rng); }
+  if (kind === 'landmark') { p.sub = o.sub || 'ruin'; p.name = freshName(() => landmarkName(p.sub, tongue, rng)); }
+  else { p.name = freshName(() => makeName(tongue, rng)); p.pop = rollPop(kind, i, rng); }
   if (kind === 'capital') p.realm = newRealm(tongue, rng);
   return p;
 }
@@ -1786,7 +1788,7 @@ function bindPlace(p) {
   const nm = $('#pName');
   nm.addEventListener('input', () => { once(); p.name = nm.value; requestDraw(); markDirty(); });
   nm.addEventListener('change', () => { if (!p.name.trim()) { p.name = 'Nameless'; nm.value = p.name; } refreshCodex(); requestDraw(); });
-  $('#pReroll').onclick = () => { pushUndo({ meta: true }); p.name = p.kind === 'landmark' ? landmarkName(p.sub, p.tongue, Math.random) : makeName(p.tongue, Math.random); nm.value = p.name; $('#pDelete').textContent = `Remove ${p.name}`; requestDraw(); refreshCodex(); markDirty(); };
+  $('#pReroll').onclick = () => { pushUndo({ meta: true }); p.name = freshName(() => p.kind === 'landmark' ? landmarkName(p.sub, p.tongue, Math.random) : makeName(p.tongue, Math.random)); nm.value = p.name; $('#pDelete').textContent = `Remove ${p.name}`; requestDraw(); refreshCodex(); markDirty(); };
   $('#pKind').onchange = e => changeKind(p, e.target.value);
   $('#pLore').addEventListener('input', e => { p.lore = e.target.value; markDirty(); });
   $('#pDelete').onclick = () => removeSel({ type: 'place', id: p.id });
