@@ -847,14 +847,20 @@ function drawMap(c, k, vw, vh, v, opt) {
 
   // ---- screen space
   c.setTransform(k, 0, 0, k, 0, 0);
-  const X0 = ox, Y0 = oy, MW = W * s, MH = H * s;
+  const X0 = ox, Y0 = oy, MW = W * s, MH = H * s, sb = scaleBar(X0, Y0, MH, MW, s, vh);
   c.save(); c.beginPath(); c.rect(X0, Y0, MW, MH); c.clip();
   if (atlas) drawGlyphs(c, v, vw, vh);
   if (L.grid && zr > 0.7) {
     c.font = `10px ${F_MONO}`; c.fillStyle = atlas ? 'rgba(70,52,30,0.75)' : 'rgba(255,255,255,0.8)'; c.textBaseline = 'top'; c.textAlign = 'left';
     // Label every 5°, or every 10° when the map is small enough that they'd run together; keep clear of the compass.
     const lonStep = 5 / LON_SPAN * W * s < 46 ? 10 : 5, latStep = 5 / LAT_SPAN * H * s < 26 ? 10 : 5;
-    for (let lat = 35; lat <= 55; lat += 5) { if (lat % latStep) continue; const y = oy + (LAT0 - lat) / LAT_SPAN * H * s; c.fillText(`${lat}°N`, Math.max(X0, 0) + 6, y + 3); }
+    // Latitudes are labelled down the left edge, except where the scale bar would cover the label.
+    const labelX = Math.max(X0, 0) + 6;
+    for (let lat = 35; lat <= 55; lat += 5) {
+      if (lat % latStep) continue; const y = oy + (LAT0 - lat) / LAT_SPAN * H * s;
+      if (labelX < sb.right && y + 14 > sb.top && y + 3 < sb.bottom) continue;
+      c.fillText(`${lat}°N`, labelX, y + 3);
+    }
     for (let lon = -10; lon <= 45; lon += 5) { if (lon % lonStep) continue; const x = ox + (lon - LON0) / LON_SPAN * W * s; if (x > Math.min(vw, X0 + MW) - 84) continue; c.fillText(`${Math.abs(lon)}°${lon < 0 ? 'W' : 'E'}`, x + 4, Math.max(Y0, 0) + 6); }
   }
   if (L.realms) drawRealmNames(c, v, atlas);
@@ -880,7 +886,7 @@ function drawMap(c, k, vw, vh, v, opt) {
 
   if (!opt.export) drawCursor(c, v);
   drawCompass(c, Math.min(vw - 46, X0 + MW - 40), Math.max(46, Y0 + 42), 21, INK, HALO);
-  drawScale(c, Math.max(16, X0 + 14), Math.min(vh - 18, Y0 + MH - 16), s, INK, HALO, Math.min(150, MW * 0.3));
+  drawScale(c, sb, INK, HALO);
 }
 function drawGlyphs(c, v, vw, vh) {
   const s = v.s, ink = '#4a3920', paper = 'rgba(236,224,190,1)', shadeCol = 'rgba(92,70,40,0.38)';
@@ -1025,10 +1031,15 @@ function drawCompass(c, X, Y, R, ink, halo) {
   haloText(c, 'N', 0, -R - 1, ink, halo, 3);
   c.restore();
 }
-function drawScale(c, X, Y, s, ink, halo, maxLen = 150) {
-  const ppl = s * LEAGUE / KM; let lg = 5;
+// Where the scale bar goes in the map's bottom-left corner, how long it is, and the box painted behind it.
+function scaleBar(X0, Y0, MH, MW, s, vh) {
+  const X = Math.max(16, X0 + 14), Y = Math.min(vh - 18, Y0 + MH - 16), ppl = s * LEAGUE / KM, maxLen = Math.min(150, MW * 0.3); let lg = 5;
   for (const n of [5, 10, 20, 25, 50, 100, 150, 200, 250, 300, 500, 1000]) if (n * ppl <= maxLen) lg = n;
-  const len = lg * ppl, seg = len / 4;
+  const len = lg * ppl;
+  return { X, Y, lg, len, top: Y - 22, bottom: Y + 8, right: X - 6 + len + 62 };
+}
+function drawScale(c, sb, ink, halo) {
+  const { X, Y, lg, len } = sb, seg = len / 4;
   c.save();
   c.fillStyle = halo; c.fillRect(X - 6, Y - 22, len + 62, 30);
   for (let k = 0; k < 4; k++) { c.fillStyle = k % 2 ? halo : ink; c.fillRect(X + k * seg, Y - 3, seg, 5); }
