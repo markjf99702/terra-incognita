@@ -266,6 +266,14 @@ delete damaged.places.find((p) => p.kind !== 'capital').x;
 const [damagedToast, damagedState] = await openFile(damaged);
 ok(damagedToast.startsWith('Opened') && damagedState.places === saved.places.length - 1, 'a world file with a realm missing its color opens');
 
+// A browser that won't keep the autosave says so over the map, not only in the World tab.
+const full = await browser.newContext({ viewport: { width: 390, height: 844 } });
+await full.addInitScript(() => { Storage.prototype.setItem = () => { throw new DOMException('full', 'QuotaExceededError'); }; });
+const fullPage = watch(await full.newPage());
+await fullPage.goto(base);
+ok(await fullPage.evaluate(() => { const t = document.getElementById('toast'); return !t.hidden && t.textContent.includes('would not keep an autosave'); }), 'a browser that will not keep the world says so');
+await full.close();
+
 const real = problems.filter((p) => !/ERR_INTERNET_DISCONNECTED|net::ERR_FAILED/.test(p));
 ok(real.length === 0, 'no errors and nothing loaded from elsewhere' + (real.length ? ':\n' + real.join('\n') : ''));
 

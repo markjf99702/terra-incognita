@@ -765,9 +765,13 @@ function markDirty() {
 function saveNow() { clearTimeout(saveTimer); saveTimer = 0; saveLocal(); }
 // Leaving the page saves straight away: a phone may never run the timer once the app is in the background.
 function saveBeforeLeaving() { if (saveTimer) saveNow(); }
+let saveWarned = false; // the first time an autosave fails, say so over the map too, not only in the World tab
 function saveLocal() {
   try { localStorage.setItem(STORE_KEY, serialize()); setSaveNote('Autosaved in this browser at ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.'); }
-  catch (e) { setSaveNote('This browser would not keep an autosave. Use Save world file to keep your work.', true); }
+  catch (e) {
+    const msg = 'This browser would not keep an autosave. Use Save world file to keep your work.';
+    setSaveNote(msg, true); if (!saveWarned) { saveWarned = true; toast(msg); }
+  }
 }
 function loadLocal() { try { const s = localStorage.getItem(STORE_KEY); if (!s) return false; loadObj(JSON.parse(s)); return true; } catch (e) { return false; } }
 function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ style: ui.style, layers: ui.layers, brush: ui.brush, sketch: ui.sketch })); } catch (e) { } }
