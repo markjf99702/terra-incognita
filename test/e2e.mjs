@@ -28,17 +28,20 @@ const base = `http://localhost:${server.address().port}/`;
 
 const browser = await pw.chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, acceptDownloads: true });
-const page = await ctx.newPage();
 const problems = [];
 const loaded = new Set();
-page.on('pageerror', (e) => problems.push(e.message));
-page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text()); });
-page.on('requestfailed', (r) => { if (!r.url().startsWith('blob:')) problems.push('failed: ' + r.url()); });
-page.on('request', (r) => {
-  const u = r.url();
-  if (u.startsWith(base)) loaded.add(new URL(u).pathname.slice(1) || './');
-  else if (!u.startsWith('data:') && !u.startsWith('blob:')) problems.push('left the site: ' + u);
-});
+function watch(page) {
+  page.on('pageerror', (e) => problems.push(e.message));
+  page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text()); });
+  page.on('requestfailed', (r) => { if (!r.url().startsWith('blob:')) problems.push('failed: ' + r.url()); });
+  page.on('request', (r) => {
+    const u = r.url();
+    if (u.startsWith(base)) loaded.add(new URL(u).pathname.slice(1) || './');
+    else if (!u.startsWith('data:') && !u.startsWith('blob:')) problems.push('left the site: ' + u);
+  });
+  return page;
+}
+const page = watch(await ctx.newPage());
 
 const S = (fn, arg) => page.evaluate(fn, arg);
 const state = () => S(() => window.terra.state());
@@ -209,6 +212,12 @@ await page.reload();
 await page.waitForTimeout(500);
 ok((await page.title()) === 'Terra Incognita' && (await state()).places > 0, 'it opens offline, with the world');
 await ctx.setOffline(false);
+
+// On a laptop-sized screen.
+const desk = watch(await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage());
+await desk.goto(base);
+await desk.click('#tab-codex');
+ok(await desk.evaluate(() => document.getElementById('codexQ').getBoundingClientRect().height) >= 33, 'the Codex search box keeps its height beside a long list');
 
 const real = problems.filter((p) => !/ERR_INTERNET_DISCONNECTED|net::ERR_FAILED/.test(p));
 ok(real.length === 0, 'no errors and nothing loaded from elsewhere' + (real.length ? ':\n' + real.join('\n') : ''));

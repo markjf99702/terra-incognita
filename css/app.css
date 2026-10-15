@@ -106,6 +106,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .tab:hover{color:var(--ink)}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 .pane{overflow:auto;padding:16px;display:flex;flex-direction:column;gap:18px;min-height:0}
+.pane>*{flex-shrink:0}
 .eyebrow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0;font:600 11px var(--f-ui);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 .eyebrow .glyph{color:var(--ink);display:inline-grid}
 .display{font-family:var(--f-display);font-weight:400;font-size:26px;line-height:1.15;margin:0;text-wrap:balance}
