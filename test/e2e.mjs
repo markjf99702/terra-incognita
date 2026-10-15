@@ -98,9 +98,14 @@ const crowded = await S(() => {
 });
 ok(crowded.length === 0, 'realm names in the Codex stay clear of their areas' + (crowded.length ? ': ' + crowded.join(', ') : ''));
 
-// Start from blank ocean through the New world menu.
+// Start from blank ocean through the New world menu, which closes if the page scrolls away from it.
 await page.click('#btnNew');
 ok(await S(() => !document.getElementById('newMenu').hidden), 'New world opens a menu');
+await S(() => window.scrollBy(0, 200));
+await page.waitForTimeout(100);
+ok(await S(() => document.getElementById('newMenu').hidden), 'the menu closes when the page scrolls');
+await S(() => window.scrollTo(0, 0));
+await page.click('#btnNew');
 await page.click('#mnBlank');
 await page.waitForTimeout(300);
 st = await state();
@@ -332,6 +337,14 @@ await desk.keyboard.press('Tab');
 await desk.keyboard.press(' ');
 ok(await desk.evaluate(() => document.getElementById('styleAtlas').getAttribute('aria-pressed') === 'true'), 'Space still presses a button reached with Tab');
 await desk.evaluate(() => window.terra.setStyle('terrain'));
+
+// The New world menu opens from the keyboard and closes when Tab moves on past it.
+await desk.focus('#btnNew');
+await desk.keyboard.press('Enter');
+const menuFocus = await desk.evaluate(() => document.activeElement.id);
+await desk.keyboard.press('Tab');
+await desk.keyboard.press('Tab');
+ok(menuFocus === 'mnRandom' && await desk.evaluate(() => document.getElementById('newMenu').hidden), 'tabbing on past the New world menu closes it');
 
 // A phone held sideways fits the whole map on screen, zoom buttons included.
 const side = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });

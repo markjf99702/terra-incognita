@@ -2043,6 +2043,9 @@ function init() {
   $('#mnBlank').onclick = () => { closeNewMenu(); startBlank(); };
   document.addEventListener('pointerdown', e => { const m = $('#newMenu'), b = $('#btnNew'); if (!m.hidden && !m.contains(e.target) && !b.contains(e.target)) closeNewMenu(); });
   window.addEventListener('resize', closeNewMenu);
+  // The menu is placed under its button, so it closes when the page scrolls, and when focus moves on to anything else.
+  window.addEventListener('scroll', () => { if (!$('#newMenu').hidden) closeNewMenu(); }, { passive: true });
+  $('#newMenu').addEventListener('focusout', e => { const to = e.relatedTarget; if (to && !$('#newMenu').contains(to) && to !== $('#btnNew')) closeNewMenu(); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveBeforeLeaving(); });
   window.addEventListener('pagehide', saveBeforeLeaving);
   $('#styleTerrain').onclick = () => setStyle('terrain'); $('#styleAtlas').onclick = () => setStyle('atlas');
