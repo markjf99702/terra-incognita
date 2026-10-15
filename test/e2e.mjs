@@ -6,8 +6,9 @@
 // sideways scrolling, installable, and it loads offline. On a laptop-sized screen: the Codex, sea names, world
 // files that are damaged, keyboard focus and shortcuts, and the dark theme Claude's viewer can stamp. Then what the
 // map says about itself: a lake's elevation, a river drawn out of a lake that leaves the lake be, a coast named after
-// the sea it is on, a coast drawn smooth that comes out smooth, and sea names clear of the scale bar; and the README's
-// count of the kinds of land. Last, a phone held sideways and a browser that won't keep the autosave.
+// the sea it is on, a coast drawn smooth that comes out smooth, and sea names clear of the scale bar and the latitudes
+// down the left edge; and the README's count of the kinds of land. Last, a phone held sideways and a browser that
+// won't keep the autosave.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -446,16 +447,20 @@ const fit = await M(() => {
 });
 ok(fit.n > 50 && fit.rms < 0.1, `a straight coast drawn smooth comes out straight (${fit.rms.toFixed(3)} cells off a straight line, over ${fit.n} rows)`);
 
-// Sea names stay clear of the scale bar in the bottom-left corner. These worlds had one underneath it.
-const covered = [];
-for (const [seed, shape] of [[645278, 'inland'], [793904, 'twin'], [543439, 'twin']]) {
-  if (await M(([seed, shape]) => {
+// Sea names stay clear of the scale bar in the bottom-left corner, and of the latitudes down the left edge. The first
+// three worlds had one under the scale bar; in the last two, keeping it off the scale bar put it on 35°N.
+const covered = [], onLat = [];
+for (const [seed, shape] of [[645278, 'inland'], [793904, 'twin'], [543439, 'twin'], [487097, 'continent'], [368654, 'twin']]) {
+  const [under, across] = await M(([seed, shape]) => {
     window.terra.newWorld(seed, shape);
-    const { scale: s, seas } = window.terra.boxes();
-    return seas.some((a) => a[0] < s[2] && a[2] > s[0] && a[1] < s[3] && a[3] > s[1]);
-  }, [seed, shape])) covered.push(seed);
+    const { scale, seas, lats } = window.terra.boxes(), hit = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+    return [seas.some((a) => hit(a, scale)), seas.some((a) => lats.some((b) => hit(a, b)))];
+  }, [seed, shape]);
+  if (under) covered.push(seed);
+  if (across) onLat.push(seed);
 }
 ok(covered.length === 0, 'sea names stay clear of the scale bar' + (covered.length ? ': not in ' + covered.join(', ') : ''));
+ok(onLat.length === 0, 'and of the latitudes down the left edge' + (onLat.length ? ': not in ' + onLat.join(', ') : ''));
 await map.context().close();
 
 // The README counts the kinds of land the map can show.

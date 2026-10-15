@@ -647,6 +647,8 @@ function populate(seed) {
   territories();
   autoLabels(rng);
 }
+// Where the latitudes labelled down the map's left edge (35° to 55°N) cross it, in map cells.
+const LAT_LINES = [35, 40, 45, 50, 55].map(lat => (LAT0 - lat) / LAT_SPAN * H);
 function autoLabels(rng) {
   const h = world.h, sea = world.sea, dist = D.dist, q = D.q; dist.fill(-1); let qh = 0, qt = 0;
   for (let i = 0; i < N; i++) if (h[i] >= sea) { dist[i] = 0; q[qt++] = i; }
@@ -663,8 +665,10 @@ function autoLabels(rng) {
     let best = -1, bd = pass ? 11 : 8;
     for (let y = 26; y < H - 24; y++) for (let x = half; x < W - half; x++) {
       // Keep clear of the compass in the top-right corner, and of the scale bar in the bottom-left, which on a laptop
-      // reaches about 180 cells along and 33 up (it is sized in pixels, so it covers less of a bigger map).
+      // reaches about 180 cells along and 33 up (it is sized in pixels, so it covers less of a bigger map). By the left
+      // edge, keep clear of the latitude labels too: on a laptop they reach about 26 cells in and 11 down from their line.
       if ((x > W - 70 && y < 44) || (x - half < 182 && y + size * 0.6 > H - 33)) continue;
+      if (x - half < 22 && LAT_LINES.some(yl => y + size * 0.6 > yl && y - size * 0.6 < yl + 12)) continue;
       const i = y * W + x; if (dist[i] > bd && (!first || Math.hypot(x - first.x, y - first.y) > 150)) { bd = dist[i]; best = i; }
     }
     if (best < 0) continue;
@@ -2185,16 +2189,27 @@ window.terra = {
   mapImage: (S = 2, allNames = true) => renderMapImage(S, allNames).toDataURL('image/png'),
   // What lies at a map cell: its height against sea level (below zero in the sea), and whether it holds a lake or a river.
   cell: (x, y) => { const i = cellAt(x, y); return { h: world.h[i] - world.sea, lake: !!D.lake[i], river: !!D.isR[i] }; },
-  // Where the scale bar's box and the sea names sit on the screen, as drawn: [left, top, right, bottom] in CSS pixels.
+  // Where the scale bar's box, the sea names and the latitude labels sit on the screen, as drawn: [left, top, right,
+  // bottom] in CSS pixels.
   boxes: () => {
-    const s = view.s, sb = scaleBar(view.ox, view.oy, H * s, W * s, s, view.ch), seas = [];
+    const s = view.s, sb = scaleBar(view.ox, view.oy, H * s, W * s, s, view.ch), seas = [], lats = [];
     for (const l of world.labels) {
       const fs = l.size * s; if (l.kind !== 'sea' || fs < 6) continue;
       const st = labelStyle(l, ui.style === 'atlas'); ctx.save(); ctx.font = `${st.font} ${fs}px ${st.face}`; ctx.letterSpacing = `${(fs * st.sp).toFixed(1)}px`;
       const w = ctx.measureText(l.text).width; ctx.restore();
       const X = view.ox + l.x * s, Y = view.oy + l.y * s; seas.push([X - w / 2, Y - fs * 0.6, X + w / 2, Y + fs * 0.6]);
     }
-    return { scale: [sb.X - 6, sb.top, sb.right, sb.bottom], seas };
+    if (ui.layers.grid && s / view.s0 > 0.7) {
+      const X = Math.max(view.ox, 0) + 6, step = 5 / LAT_SPAN * H * s < 26 ? 10 : 5;
+      ctx.save(); ctx.font = `10px ${F_MONO}`; ctx.letterSpacing = '0px';
+      for (let lat = 35; lat <= 55; lat += 5) {
+        if (lat % step) continue; const y = view.oy + (LAT0 - lat) / LAT_SPAN * H * s;
+        if (X < sb.right && y + 14 > sb.top && y + 3 < sb.bottom) continue;
+        lats.push([X, y + 3, X + ctx.measureText(`${lat}°N`).width, y + 13]);
+      }
+      ctx.restore();
+    }
+    return { scale: [sb.X - 6, sb.top, sb.right, sb.bottom], seas, lats };
   },
   riverNear: (x, y, r = 1.5) => {
     for (let dy = -Math.ceil(r); dy <= Math.ceil(r); dy++) for (let dx = -Math.ceil(r); dx <= Math.ceil(r); dx++) {
