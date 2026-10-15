@@ -395,6 +395,34 @@ const alongOut = []; for (let x = 413; x <= 430; x++) alongOut.push(await M((x) 
 ok(lakeAfter >= lakeBefore * 0.95, `a river drawn out of a lake leaves the lake (${lakeBefore} lake cells before, ${lakeAfter} after)`);
 ok(alongOut.filter(Boolean).length >= alongOut.length * 0.9, `and runs where it was drawn (${alongOut.filter(Boolean).length} of ${alongOut.length} points)`);
 
+// An island with a sea inside it: a town on the inner sea is on the coast of that sea, not the ocean outside, even
+// when the ocean's name is the only one on the map.
+await M(() => window.terra.startBlank());
+await M(() => { const r = document.getElementById('optRough'); r.value = '0'; r.dispatchEvent(new Event('input')); });
+await drag([[140, 70], [340, 70], [360, 150], [340, 230], [140, 230], [120, 150], [140, 70]], 6, map);
+await map.click('.chip[data-v="sea"]');
+await drag([[200, 120], [280, 120], [290, 150], [280, 180], [200, 180], [190, 150], [200, 120]], 6, map);
+ok(await M(() => window.terra.cell(240.5, 150.5).h < 0 && window.terra.cell(160.5, 150.5).h >= 0 && window.terra.cell(100.5, 150.5).h < 0), 'a sketched island holds an inland sea');
+await map.keyboard.press('t');
+await map.click('.chip[data-g="label"][data-v="sea"]');
+await map.fill('#optLabelText', 'The Outer Ocean');
+await clickMap(100.5, 150.5);
+await map.keyboard.press('c');
+await clickMap(188.5, 150.5);
+const shoreTown = (await M(() => window.terra.places()))[0];
+const onlyOcean = await row('Setting');
+await M(() => window.terra.select({ type: 'loc', x: 250.5, y: 160.5 }));
+const unnamedWater = await map.textContent('#pane-inspect h2');
+await map.keyboard.press('t');
+await map.fill('#optLabelText', 'The Inner Sea');
+await clickMap(240.5, 150.5);
+await M((id) => window.terra.select({ type: 'place', id }), shoreTown.id);
+const named = await row('Setting');
+ok(onlyOcean.startsWith('On the coast of the sea') && named.startsWith('On the coast of the Inner Sea'), `a town on an inland sea is on its coast, not the ocean's ("${onlyOcean}", then "${named}")`);
+await M(() => window.terra.select({ type: 'loc', x: 250.5, y: 160.5 }));
+const namedWater = await map.textContent('#pane-inspect h2');
+ok(unnamedWater === 'Open sea' && namedWater === 'The Inner Sea', `and its water goes by its own name, or none ("${unnamedWater}", then "${namedWater}")`);
+
 await map.context().close();
 
 // A phone held sideways fits the whole map on screen, zoom buttons included.

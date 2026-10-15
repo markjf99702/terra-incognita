@@ -135,7 +135,7 @@ const ui = {
 const D = {
   biome: new Uint8Array(N), temp: new Float32Array(N), tN: new Float32Array(N),
   filled: new Float32Array(N), down: new Int32Array(N), acc: new Float32Array(N), order: new Int32Array(N), lake: new Uint8Array(N), lakeF: new Float32Array(N),
-  vis: new Uint8Array(N), isR: new Uint8Array(N), hasUp: new Uint8Array(N), mouth: new Int32Array(N),
+  vis: new Uint8Array(N), isR: new Uint8Array(N), hasUp: new Uint8Array(N), mouth: new Int32Array(N), body: new Int32Array(N),
   owner: new Int16Array(N), cost: new Float64Array(N), ind: new Float32Array(N), tmp: new Float32Array(N), dist: new Int16Array(N), q: new Int32Array(N),
   realms: [], borders: [], coast: new Path2D(), contours: null, riverPaths: [], riverLabels: [], glyphs: [], riverNames: new Map(),
 };
@@ -339,6 +339,19 @@ function smoothLine(path, pts) {
 }
 function buildCoast() {
   const p = new Path2D(); pathFromContour(world.h, world.sea, p); pathFromContour(D.lakeF, 0.5, p); D.coast = p;
+}
+// Number each stretch of sea (water touching at a corner counts as one), so a coast is named after the water it is on.
+function buildBodies() {
+  const h = world.h, sea = world.sea, body = D.body, q = D.q; body.fill(-1); let nb = 0;
+  for (let i = 0; i < N; i++) {
+    if (h[i] >= sea || body[i] >= 0) continue;
+    let qh = 0, qt = 0; q[qt++] = i; body[i] = nb;
+    while (qh < qt) {
+      const c = q[qh++], cx = c % W, cy = (c / W) | 0;
+      for (let k = 0; k < 8; k++) { const nx = cx + NBX[k], ny = cy + NBY[k]; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const n = ny * W + nx; if (body[n] < 0 && h[n] < sea) { body[n] = nb; q[qt++] = n; } }
+    }
+    nb++;
+  }
 }
 function buildContours() {
   if (ui.style !== 'atlas') { D.contours = null; return; }
@@ -549,7 +562,7 @@ function renderBase(x0 = 0, y0 = 0, x1 = W - 1, y1 = H - 1) {
   L_LAND.x.putImageData(L_LAND.img, 0, 0, x0, y0, x1 - x0 + 1, y1 - y0 + 1);
 }
 
-function recomputeTerrain() { snapToSave(world.h); snapToSave(world.m); hydrology(); computeClimate(); buildRivers(); buildCoast(); buildContours(); buildGlyphs(); renderBase(); }
+function recomputeTerrain() { snapToSave(world.h); snapToSave(world.m); hydrology(); computeClimate(); buildRivers(); buildCoast(); buildBodies(); buildContours(); buildGlyphs(); renderBase(); }
 function recomputePolitics() { territories(); buildBorders(); renderTint(); }
 function recomputeAll() { recomputeTerrain(); recomputePolitics(); requestDraw(); refreshPanels(); }
 
@@ -1636,7 +1649,17 @@ function updateStatus() {
 }
 
 // ------------------------------------------------------------------ facts
-function nearestSeaLabel(x, y) { let best = null, bd = Infinity; for (const l of world.labels) if (l.kind === 'sea') { const d = (l.x - x) ** 2 + (l.y - y) ** 2; if (d < bd) { bd = d; best = l; } } return best ? best.text : null; }
+// The stretches of sea within r cells of a spot.
+function bodiesNear(i, r) { const s = new Set(), x = i % W, y = (i / W) | 0; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const b = D.body[ny * W + nx]; if (b >= 0) s.add(b); } return s; }
+// The stretch of sea a label names: the one under it, or for a label set just off the water, the nearest one.
+function labelBody(l) {
+  const i = cellAt(l.x, l.y); if (D.body[i] >= 0) return D.body[i];
+  const x = i % W, y = (i / W) | 0; let best = -1, bd = 7 * 7;
+  for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const nx = x + dx, ny = y + dy, d = dx * dx + dy * dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H || d >= bd) continue; const b = D.body[ny * W + nx]; if (b >= 0) { bd = d; best = b; } }
+  return best;
+}
+// The nearest sea label on one of the given stretches of sea, so a place never takes its name from water it isn't on.
+function nearestSeaLabel(x, y, bodies) { let best = null, bd = Infinity; for (const l of world.labels) if (l.kind === 'sea' && bodies.has(labelBody(l))) { const d = (l.x - x) ** 2 + (l.y - y) ** 2; if (d < bd) { bd = d; best = l; } } return best ? best.text : null; }
 // A sea's name in the middle of a sentence: "the Lasgmias Sound", "the Sea of Kamkod".
 const seaInText = t => /^The /.test(t) ? 'the ' + t.slice(4) : /^(Sea|Bay|Gulf|Sound|Straits?|Ocean|Lake) of /.test(t) ? 'the ' + t : t;
 function facts(x, y, self) {
@@ -1648,7 +1671,7 @@ function facts(x, y, self) {
   if (!water) { let best = -1, ba = RIVER_T; const cx = i % W, cy = (i / W) | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const j = ny * W + nx; if (D.isR[j] && D.acc[j] > ba) { ba = D.acc[j]; best = j; } } if (best >= 0) f.river = riverName(mouthOf(best)); }
   let nb = null, nd = Infinity; for (const p of world.places) { if (p === self) continue; const d = Math.hypot(p.x - x, p.y - y); if (d < nd) { nd = d; nb = p; } }
   f.near = nb ? { p: nb, leagues: Math.max(1, Math.round(nd * KM / LEAGUE)), dir: compass(x - nb.x, y - nb.y) } : null;
-  const seaName = f.coastal && nearestSeaLabel(x, y); f.sea = seaName ? seaInText(seaName) : null;
+  const seaName = f.coastal && nearestSeaLabel(x, y, bodiesNear(i, 2)); f.sea = seaName ? seaInText(seaName) : null;
   f.goods = [];
   if (!water) {
     const rng = mulberry32(hash3(i, world.seed, 31)); const pool = (GOODS[f.b] || []).slice();
@@ -1915,7 +1938,7 @@ function bindLabel(l) {
 }
 function locHTML(o) {
   const f = facts(o.x, o.y, null);
-  const title = f.water && !f.lake ? (nearestSeaLabel(o.x, o.y) || 'Open sea').replace(/^the /, 'The ') : f.biome;
+  const title = f.water && !f.lake ? (nearestSeaLabel(o.x, o.y, new Set([D.body[f.i]])) || 'Open sea').replace(/^the /, 'The ') : f.biome;
   return `<div><p class="eyebrow">Location</p><h2 class="display">${esc(title)}</h2></div>
     ${factsHTML(f, null)}
     ${f.water || f.lake ? '' : `<div class="row"><button class="btn sm" id="locTown">Found a town here</button><button class="btn sm" id="locLabel">Label this spot</button></div>`}`;
