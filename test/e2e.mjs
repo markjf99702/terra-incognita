@@ -120,6 +120,7 @@ ok(afterRange.lakes < afterRange.land * 0.004, `two tall ranges leave no valley 
 
 // A river drawn from inland out to sea.
 await page.click('.chip[data-v="river"]');
+const riversBefore = (await state()).rivers;
 const line = [[255, 150], [232, 165], [262, 182], [262, 215], [250, 262]];
 await drag(line, 8);
 st = await state();
@@ -129,9 +130,11 @@ for (let k = 0; k < line.length - 1; k++) for (let t = 0; t < 1; t += 0.1) along
 const inland = along.filter(([, y]) => y < 225);
 const wet = (await Promise.all(inland.map((p) => S(([x, y]) => window.terra.riverNear(x, y), p)))).filter(Boolean).length;
 ok(wet >= inland.length * 0.9, `a drawn river runs where it was drawn (${wet} of ${inland.length} points)`);
+// Undo brings back the rivers from before. (Not always fewer: a drawn valley can gather streams that ran apart.)
 await page.keyboard.press('Control+z'); await page.waitForTimeout(300);
-ok((await state()).rivers < st.rivers, 'undo takes the river back out');
+ok((await state()).rivers === riversBefore, 'undo takes the river back out');
 await page.keyboard.press('Control+Shift+z'); await page.waitForTimeout(300);
+ok((await state()).rivers === st.rivers, 'redo puts it back');
 
 // New realms fill the island.
 await page.click('#tab-world');
