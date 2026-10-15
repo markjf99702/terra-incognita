@@ -40,6 +40,7 @@ body{margin:0;background:var(--ground);color:var(--ink);font:14px/1.45 var(--f-u
 *{box-sizing:border-box}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.seg button:focus-visible,.zoom button:focus-visible{outline-offset:-3px} /* inside, since their group clips anything outside */
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 .app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);gap:12px;padding-block:12px;padding-inline:16px}

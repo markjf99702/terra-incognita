@@ -266,6 +266,15 @@ delete damaged.places.find((p) => p.kind !== 'capital').x;
 const [damagedToast, damagedState] = await openFile(damaged);
 ok(damagedToast.startsWith('Opened') && damagedState.places === saved.places.length - 1, 'a world file with a realm missing its color opens');
 
+// Keyboard focus on a zoom button is drawn inside it, where the button group can't clip it away.
+await desk.evaluate(() => document.activeElement.blur());
+let onZoom = false;
+for (let k = 0; k < 80 && !onZoom; k++) { await desk.keyboard.press('Tab'); onZoom = await desk.evaluate(() => document.activeElement.id === 'zIn'); }
+ok(onZoom && await desk.evaluate(() => {
+  const el = document.activeElement, cs = getComputedStyle(el);
+  return el.matches(':focus-visible') && parseFloat(cs.outlineOffset) + parseFloat(cs.outlineWidth) <= 0;
+}), 'keyboard focus shows on the zoom buttons');
+
 // A phone held sideways fits the whole map on screen, zoom buttons included.
 const side = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const sidePage = watch(await side.newPage());
