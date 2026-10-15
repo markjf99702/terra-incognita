@@ -153,14 +153,18 @@ ok((await page.inputValue('#pName')) === town.name, 'Undo puts the old name back
 ok((await page.inputValue('#pLore')).endsWith('The mayor is a retired smuggler.'), 'Undo leaves the notes alone');
 
 // It survives a reload, and the map that comes back is the same one: rivers, lakes and borders included.
+// Leaving the page saves at once, so notes typed just before it are kept without waiting for the autosave.
+await page.locator('#pLore').press('Control+End');
+await page.keyboard.type(' Ships unload salt at dawn.');
 const before = await state(), beforeRealms = await realmRows();
-await page.waitForTimeout(1200); // autosave
 await page.reload();
 await page.waitForTimeout(400);
 st = await state();
 ok(st.name === before.name && st.places === before.places && st.land === before.land, 'the world is still there after a reload');
 ok(st.rivers === before.rivers && st.lakes === before.lakes, `its rivers and lakes are where they were (${before.rivers} river cells before, ${st.rivers} after)`);
 ok(JSON.stringify(await realmRows()) === JSON.stringify(beforeRealms), 'its borders are where they were');
+const notesAfter = await S((id) => { window.terra.select({ type: 'place', id }); return document.getElementById('pLore').value; }, town.id);
+ok(notesAfter.endsWith('Ships unload salt at dawn.'), 'notes typed just before leaving are still there');
 
 // Save world file downloads it.
 await page.click('#tab-world');

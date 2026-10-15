@@ -737,8 +737,15 @@ function loadObj(o) {
   for (const p of world.places) { if (!KINDS[p.kind]) p.kind = 'village'; if (!TONGUES[p.tongue]) p.tongue = 'vale'; p.name = String(p.name || 'Nameless'); p.lore = String(p.lore || ''); }
   computeTN();
 }
-let saveTimer = 0;
-function markDirty() { clearTimeout(saveTimer); saveTimer = setTimeout(saveLocal, 900); }
+// Save 0.9 s after the last change, and at least every 5 s while changes keep coming (typing a long note).
+let saveTimer = 0, saveBy = 0;
+function markDirty() {
+  const now = Date.now(); if (!saveTimer) saveBy = now + 5000;
+  clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, Math.max(0, Math.min(900, saveBy - now)));
+}
+function saveNow() { clearTimeout(saveTimer); saveTimer = 0; saveLocal(); }
+// Leaving the page saves straight away: a phone may never run the timer once the app is in the background.
+function saveBeforeLeaving() { if (saveTimer) saveNow(); }
 function saveLocal() {
   try { localStorage.setItem(STORE_KEY, serialize()); setSaveNote('Autosaved in this browser at ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.'); }
   catch (e) { setSaveNote('This browser would not keep an autosave. Use Save world file to keep your work.', true); }
@@ -1994,6 +2001,8 @@ function init() {
   $('#mnBlank').onclick = () => { closeNewMenu(); startBlank(); };
   document.addEventListener('pointerdown', e => { const m = $('#newMenu'), b = $('#btnNew'); if (!m.hidden && !m.contains(e.target) && !b.contains(e.target)) closeNewMenu(); });
   window.addEventListener('resize', closeNewMenu);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveBeforeLeaving(); });
+  window.addEventListener('pagehide', saveBeforeLeaving);
   $('#styleTerrain').onclick = () => setStyle('terrain'); $('#styleAtlas').onclick = () => setStyle('atlas');
   $('#zIn').onclick = () => zoomAt(view.cw / 2, view.ch / 2, 1.35); $('#zOut').onclick = () => zoomAt(view.cw / 2, view.ch / 2, 1 / 1.35); $('#zFit').onclick = fitView;
   for (const k of ['inspect', 'codex', 'world']) $('#tab-' + k).onclick = () => showTab(k);
