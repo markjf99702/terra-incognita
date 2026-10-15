@@ -62,4 +62,4 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `scripts/build.mjs`: the single-file copy. Inside Claude, a town's page there can also ask Claude to draft its history
   from the map; on the site that button stays hidden.
 - `tools/screenshots.mjs`, `tools/make-icons.mjs`, `tools/icon-full-bleed.svg`: the pictures and icons.
-- `test/e2e.mjs`: plays it on a phone-sized screen and checks it still works offline.
+- `test/e2e.mjs`: plays it on a phone-sized screen and a laptop-sized one, and checks it still works offline.

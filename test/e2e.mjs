@@ -1,8 +1,11 @@
 // Draws a world in Chromium through the real page:  node test/e2e.mjs  (needs Playwright)
 // On a phone-sized screen: the starting world has realms, towns and rivers; a blank ocean takes a sketched island,
 // a mountain range (without flooding the valleys beside it) and a hand-drawn river; new realms fill the island;
-// a town's page rolls a rumor into its notes; the world survives a reload and saves to a file. Then the usual
-// checks: no errors, nothing loaded from elsewhere, no sideways scrolling, installable, and it loads offline.
+// a town's page rolls a rumor into its notes, and Undo leaves notes alone; the world, rivers and borders included,
+// survives a reload and saves to a file. Then the usual checks: no errors, nothing loaded from elsewhere, no
+// sideways scrolling, installable, and it loads offline. On a laptop-sized screen: the Codex, sea names, world
+// files that are damaged, keyboard focus and shortcuts, and the dark theme Claude's viewer can stamp. Last, a
+// phone held sideways and a browser that won't keep the autosave.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
