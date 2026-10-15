@@ -275,6 +275,18 @@ ok(onZoom && await desk.evaluate(() => {
   return el.matches(':focus-visible') && parseFloat(cs.outlineOffset) + parseFloat(cs.outlineWidth) <= 0;
 }), 'keyboard focus shows on the zoom buttons');
 
+// The toast's Undo stays readable in the dark theme that Claude's viewer can stamp on the page.
+await desk.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+await desk.click('#btnNew');
+await desk.click('#mnRandom');
+const undoContrast = await desk.evaluate(() => {
+  const lum = (c) => c.match(/\d+(\.\d+)?/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+  const a = lum(getComputedStyle(document.querySelector('#toast button')).color), b = lum(getComputedStyle(document.getElementById('toast')).backgroundColor);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+});
+ok(undoContrast >= 4.5, `the toast's Undo is readable in the dark theme (${undoContrast.toFixed(1)}:1)`);
+await desk.evaluate(() => document.documentElement.removeAttribute('data-theme'));
+
 // A phone held sideways fits the whole map on screen, zoom buttons included.
 const side = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const sidePage = watch(await side.newPage());

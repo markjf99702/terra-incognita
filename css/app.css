@@ -98,7 +98,6 @@ button,input,select,textarea{font:inherit;color:inherit}
 .toast{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:8px 8px 8px 14px;border-radius:9px;display:flex;align-items:center;gap:12px;font-size:13px;box-shadow:var(--shadow);max-width:calc(100% - 120px)}
 .toast{pointer-events:none}
 .toast button{pointer-events:auto;border:0;background:transparent;color:var(--accent-soft);font-weight:600;cursor:pointer;padding:4px 8px;border-radius:6px}
-:root[data-theme="dark"] .toast button{color:var(--accent-strong)}
 .toast button:hover{background:rgba(127,127,127,.2)}
 
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0;overflow:hidden}
