@@ -266,6 +266,13 @@ delete damaged.places.find((p) => p.kind !== 'capital').x;
 const [damagedToast, damagedState] = await openFile(damaged);
 ok(damagedToast.startsWith('Opened') && damagedState.places === saved.places.length - 1, 'a world file with a realm missing its color opens');
 
+// A phone held sideways fits the whole map on screen, zoom buttons included.
+const side = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+const sidePage = watch(await side.newPage());
+await sidePage.goto(base);
+ok(await sidePage.evaluate(() => document.getElementById('mapwrap').getBoundingClientRect().height <= innerHeight), 'a phone held sideways fits the whole map on screen');
+await side.close();
+
 // A browser that won't keep the autosave says so over the map, not only in the World tab.
 const full = await browser.newContext({ viewport: { width: 390, height: 844 } });
 await full.addInitScript(() => { Storage.prototype.setItem = () => { throw new DOMException('full', 'QuotaExceededError'); }; });

@@ -172,7 +172,7 @@ kbd{font:11px var(--f-mono);border:1px solid var(--line-strong);border-bottom-wi
   .tools{flex-direction:row;flex-wrap:wrap;align-self:stretch}
   .tool-sep{width:1px;height:auto;margin:3px 4px}
   .stage{height:auto}
-  .mapwrap{flex:none;aspect-ratio:480/336;min-height:250px}
+  .mapwrap{flex:none;aspect-ratio:480/336;min-height:250px;max-height:calc(100vh - 24px);max-height:calc(100svh - 24px)}
   .panel{min-height:460px}
   .top-actions{margin-left:0}
   .brand-name{font-size:21px}
