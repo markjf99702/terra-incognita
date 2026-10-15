@@ -296,6 +296,26 @@ const landMoved = (await desk.evaluate(() => window.terra.state())).land;
 await desk.keyboard.press('Control+z');
 ok(landMoved !== landBefore && (await desk.evaluate(() => window.terra.state())).land === landBefore, 'Ctrl+Z works straight after using a slider');
 
+// Space and drag pans with any tool, even straight after clicking the tool's button...
+await desk.click('.tool[data-tool="raise"]');
+const mb = await desk.locator('#map').boundingBox();
+const from = await desk.evaluate(() => [window.terra.toScreen(0, 0), window.terra.state().undo]);
+await desk.mouse.move(mb.x + mb.width / 2, mb.y + mb.height / 2);
+await desk.keyboard.down(' ');
+await desk.mouse.down();
+for (let k = 1; k <= 6; k++) await desk.mouse.move(mb.x + mb.width / 2 - k * 6, mb.y + mb.height / 2 - k * 4);
+await desk.mouse.up();
+await desk.keyboard.up(' ');
+const to = await desk.evaluate(() => [window.terra.toScreen(0, 0), window.terra.state().undo]);
+ok((to[0].x !== from[0].x || to[0].y !== from[0].y) && to[1] === from[1], 'Space and drag pans straight after clicking a tool');
+// ...while a button reached with Tab still takes Space.
+await desk.evaluate(() => window.terra.setStyle('terrain'));
+await desk.focus('#styleTerrain');
+await desk.keyboard.press('Tab');
+await desk.keyboard.press(' ');
+ok(await desk.evaluate(() => document.getElementById('styleAtlas').getAttribute('aria-pressed') === 'true'), 'Space still presses a button reached with Tab');
+await desk.evaluate(() => window.terra.setStyle('terrain'));
+
 // A phone held sideways fits the whole map on screen, zoom buttons included.
 const side = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const sidePage = watch(await side.newPage());

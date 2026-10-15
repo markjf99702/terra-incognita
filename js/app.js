@@ -1999,7 +1999,9 @@ window.addEventListener('keydown', e => {
   if (mod && e.key.toLowerCase() === 'z' && !text) { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
   if (mod && e.key.toLowerCase() === 'y' && !text) { e.preventDefault(); redo(); return; }
   if (typing || mod || e.altKey) return;
-  if (e.key === ' ' && (e.target === document.body || e.target === canvas || !e.target)) { if (!spaceDown) { spaceDown = true; updateCursor(); } e.preventDefault(); return; }
+  // Space pans while the pointer is over the map, even with a button still focused from a click. Not on a control a
+  // keyboard user has moved onto: there Space presses it.
+  if (e.key === ' ' && (!el || el === document.body || el === canvas || (hover && el !== keyFocus))) { if (!spaceDown) { spaceDown = true; updateCursor(); } e.preventDefault(); return; }
   if (e.key === 'Escape') {
     if (!$('#newMenu').hidden) { closeNewMenu(); $('#btnNew').focus(); return; }
     if (sketchDraft) { sketchDraft = null; gesture = null; requestDraw(); return; }
@@ -2012,7 +2014,10 @@ window.addEventListener('keydown', e => {
   if (e.key === '-') { zoomAt(view.cw / 2, view.ch / 2, 1 / 1.3); return; }
   const t = TOOLS.find(x => x && x.key === e.key.toLowerCase()); if (t) setTool(t.id);
 });
-window.addEventListener('keyup', e => { if (e.key === ' ') { spaceDown = false; updateCursor(); } });
+window.addEventListener('keyup', e => { if (e.key === ' ') { if (spaceDown) e.preventDefault(); spaceDown = false; updateCursor(); } });
+// The control a keyboard user moved focus onto: the browser shows its focus ring then, but not after a click.
+let keyFocus = null;
+document.addEventListener('focusin', e => { let shown = true; try { shown = e.target.matches(':focus-visible'); } catch (err) { } keyFocus = shown ? e.target : null; });
 window.addEventListener('blur', () => { spaceDown = false; if (stroke) endStroke(); });
 
 // ------------------------------------------------------------------ init
