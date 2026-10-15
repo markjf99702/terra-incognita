@@ -1558,7 +1558,9 @@ function updateStatus() {
 }
 
 // ------------------------------------------------------------------ facts
-function nearestSeaLabel(x, y) { let best = null, bd = Infinity; for (const l of world.labels) if (l.kind === 'sea') { const d = (l.x - x) ** 2 + (l.y - y) ** 2; if (d < bd) { bd = d; best = l; } } return best ? best.text.replace(/^The /, 'the ') : null; }
+function nearestSeaLabel(x, y) { let best = null, bd = Infinity; for (const l of world.labels) if (l.kind === 'sea') { const d = (l.x - x) ** 2 + (l.y - y) ** 2; if (d < bd) { bd = d; best = l; } } return best ? best.text : null; }
+// A sea's name in the middle of a sentence: "the Lasgmias Sound", "the Sea of Kamkod".
+const seaInText = t => /^The /.test(t) ? 'the ' + t.slice(4) : /^(Sea|Bay|Gulf|Sound|Straits?|Ocean|Lake) of /.test(t) ? 'the ' + t : t;
 function facts(x, y, self) {
   const i = cellAt(x, y), h = world.h, sea = world.sea, water = h[i] < sea, lake = !!D.lake[i], E = elevM(i);
   const f = { i, x, y, water, lake, E, temp: D.temp[i], precip: precip(i), b: D.biome[i], biome: BIOME_NAME[D.biome[i]] };
@@ -1568,7 +1570,7 @@ function facts(x, y, self) {
   if (!water) { let best = -1, ba = RIVER_T; const cx = i % W, cy = (i / W) | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const j = ny * W + nx; if (D.isR[j] && D.acc[j] > ba) { ba = D.acc[j]; best = j; } } if (best >= 0) f.river = riverName(mouthOf(best)); }
   let nb = null, nd = Infinity; for (const p of world.places) { if (p === self) continue; const d = Math.hypot(p.x - x, p.y - y); if (d < nd) { nd = d; nb = p; } }
   f.near = nb ? { p: nb, leagues: Math.max(1, Math.round(nd * KM / LEAGUE)), dir: compass(x - nb.x, y - nb.y) } : null;
-  f.sea = f.coastal ? nearestSeaLabel(x, y) : null;
+  const seaName = f.coastal && nearestSeaLabel(x, y); f.sea = seaName ? seaInText(seaName) : null;
   f.goods = [];
   if (!water) {
     const rng = mulberry32(hash3(i, world.seed, 31)); const pool = (GOODS[f.b] || []).slice();

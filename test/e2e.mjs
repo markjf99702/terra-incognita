@@ -219,6 +219,22 @@ await desk.goto(base);
 await desk.click('#tab-codex');
 ok(await desk.evaluate(() => document.getElementById('codexQ').getBoundingClientRect().height) >= 33, 'the Codex search box keeps its height beside a long list');
 
+// A place by a sea labelled "Gulf of ..." is on the coast of the Gulf of ...
+const settingOf = (id) => desk.evaluate((id) => {
+  window.terra.select({ type: 'place', id });
+  const dd = [...document.querySelectorAll('#pane-inspect .facts dd')].find((d) => d.previousElementSibling.textContent === 'Setting');
+  return dd ? dd.textContent : '';
+}, id);
+let coastal = null;
+for (const p of (await desk.evaluate(() => window.terra.places())).sort((a, b) => a.y - b.y)) if ((await settingOf(p.id)).startsWith('On the coast of')) { coastal = p; break; }
+await desk.keyboard.press('t');
+await desk.click('.chip[data-g="label"][data-v="sea"]');
+await desk.fill('#optLabelText', 'Gulf of Testing');
+const mapBox = await desk.locator('#map').boundingBox(), at = await desk.evaluate(([x, y]) => window.terra.toScreen(x, y), [coastal.x + 3, coastal.y]);
+await desk.mouse.click(mapBox.x + at.x, mapBox.y + at.y);
+const setting = await settingOf(coastal.id);
+ok(setting.startsWith('On the coast of the Gulf of Testing'), `a sea's name reads as it should in a sentence (${coastal.name}: "${setting}")`);
+
 const real = problems.filter((p) => !/ERR_INTERNET_DISCONNECTED|net::ERR_FAILED/.test(p));
 ok(real.length === 0, 'no errors and nothing loaded from elsewhere' + (real.length ? ':\n' + real.join('\n') : ''));
 
