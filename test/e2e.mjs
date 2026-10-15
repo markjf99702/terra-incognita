@@ -167,6 +167,7 @@ ok(!(await page.getAttribute('#pLore', 'placeholder')).includes('Claude'), 'and 
 const undoBefore = (await state()).undo;
 await page.fill('#pName', 'Saltgate');
 ok((await state()).undo === undoBefore + 1, 'typing a new name is one undo step');
+ok((await page.textContent('#pDelete')) === 'Remove Saltgate', 'the Remove link follows the new name');
 await page.locator('#pLore').press('Control+End');
 await page.keyboard.type(' The mayor is a retired smuggler.');
 await page.click('#btnUndo');

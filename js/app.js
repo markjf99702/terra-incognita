@@ -1809,8 +1809,9 @@ function bindPlace(p) {
   // Edits on this page are one undo step, so Undo steps back through them before anything older. Notes stay out of undo.
   let pushed = false; const once = () => { if (!pushed) { pushUndo({ meta: true }); pushed = true; } };
   const nm = $('#pName');
-  nm.addEventListener('input', () => { once(); p.name = nm.value; requestDraw(); markDirty(); });
-  nm.addEventListener('change', () => { if (!p.name.trim()) { p.name = 'Nameless'; nm.value = p.name; } refreshCodex(); requestDraw(); });
+  const removeLink = $('#pDelete');
+  nm.addEventListener('input', () => { once(); p.name = nm.value; removeLink.textContent = `Remove ${p.name}`; requestDraw(); markDirty(); });
+  nm.addEventListener('change', () => { if (!p.name.trim()) { p.name = 'Nameless'; nm.value = p.name; removeLink.textContent = `Remove ${p.name}`; } refreshCodex(); requestDraw(); });
   $('#pReroll').onclick = () => { pushUndo({ meta: true }); p.name = freshName(() => p.kind === 'landmark' ? landmarkName(p.sub, p.tongue, Math.random) : makeName(p.tongue, Math.random)); nm.value = p.name; $('#pDelete').textContent = `Remove ${p.name}`; requestDraw(); refreshCodex(); markDirty(); };
   $('#pKind').onchange = e => changeKind(p, e.target.value);
   $('#pLore').addEventListener('input', e => { p.lore = e.target.value; markDirty(); });
