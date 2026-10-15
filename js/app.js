@@ -1760,7 +1760,7 @@ function placeHTML(p) {
       <p class="note" id="draftNote">${sampleFn ? 'Claude drafts a history from the geography and your notes. Nothing is added until you keep it.' : 'Rumors come from the map around this place. Keep the ones you like.'}</p>
     </div>
     <div class="section"><h3><label for="pLore">Notes and lore</label></h3>
-      <textarea id="pLore" placeholder="Who rules here? What do travelers whisper about? Anything you write here also guides the history Claude drafts.">${esc(p.lore)}</textarea>
+      <textarea id="pLore" placeholder="Who rules here? What do travelers whisper about?${sampleFn ? ' Anything you write here also guides the history Claude drafts.' : ''}">${esc(p.lore)}</textarea>
     </div>
     <button class="link danger" id="pDelete">Remove ${esc(p.name)}</button>`;
 }
