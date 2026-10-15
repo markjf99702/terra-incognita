@@ -1990,11 +1990,14 @@ function toast(msg, action) {
 
 // ------------------------------------------------------------------ keyboard
 window.addEventListener('keydown', e => {
-  const tag = (e.target && e.target.tagName) || '';
-  const typing = /INPUT|TEXTAREA|SELECT/.test(tag) || (e.target && e.target.isContentEditable);
+  const el = e.target, tag = (el && el.tagName) || '';
+  // Only a text box takes the keys for itself; after a slider, checkbox or button the shortcuts still work.
+  // A list box keeps its letters for picking an option, but lets Ctrl+Z through.
+  const text = tag === 'TEXTAREA' || (el && el.isContentEditable) || (tag === 'INPUT' && !/^(range|checkbox|radio|button|submit|reset|color|file)$/.test(el.type));
+  const typing = text || tag === 'SELECT';
   const mod = e.ctrlKey || e.metaKey;
-  if (mod && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
-  if (mod && e.key.toLowerCase() === 'y' && !typing) { e.preventDefault(); redo(); return; }
+  if (mod && e.key.toLowerCase() === 'z' && !text) { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+  if (mod && e.key.toLowerCase() === 'y' && !text) { e.preventDefault(); redo(); return; }
   if (typing || mod || e.altKey) return;
   if (e.key === ' ' && (e.target === document.body || e.target === canvas || !e.target)) { if (!spaceDown) { spaceDown = true; updateCursor(); } e.preventDefault(); return; }
   if (e.key === 'Escape') {

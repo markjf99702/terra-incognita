@@ -287,6 +287,15 @@ const undoContrast = await desk.evaluate(() => {
 ok(undoContrast >= 4.5, `the toast's Undo is readable in the dark theme (${undoContrast.toFixed(1)}:1)`);
 await desk.evaluate(() => document.documentElement.removeAttribute('data-theme'));
 
+// Shortcuts still work straight after using a slider: Ctrl+Z takes back the sea level it set.
+await desk.click('#tab-world');
+const landBefore = (await desk.evaluate(() => window.terra.state())).land;
+const seaBox = await desk.locator('#wSea').boundingBox();
+await desk.locator('#wSea').click({ position: { x: seaBox.width * 0.15, y: seaBox.height / 2 } });
+const landMoved = (await desk.evaluate(() => window.terra.state())).land;
+await desk.keyboard.press('Control+z');
+ok(landMoved !== landBefore && (await desk.evaluate(() => window.terra.state())).land === landBefore, 'Ctrl+Z works straight after using a slider');
+
 // A phone held sideways fits the whole map on screen, zoom buttons included.
 const side = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const sidePage = watch(await side.newPage());
