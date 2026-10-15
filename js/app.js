@@ -146,8 +146,10 @@ const L_SEA = mkCanvas(), L_LAND = mkCanvas(), L_TINT = mkCanvas();
 
 function heightM(h) { const s = world.sea; if (h < s) return -MAX_DEPTH * Math.pow((s - h) / s, 0.85); return MAX_ELEV * Math.pow((h - s) / (1 - s), 1.6); }
 const elevM = i => heightM(world.h[i]);
-// What a spot reads as: the ground, or on a lake, the water's surface rather than the lake bed.
-const surfaceM = i => heightM(D.lake[i] ? D.filled[i] : world.h[i]);
+// What a spot reads as: the ground, or on a lake, the water's surface rather than the lake bed. A lake's surface is the
+// height of the pass it spills over: D.filled creeps up a hair across a lake, which could tip a reading by a metre.
+function lakeLevel(i) { let c = i; while (D.filled[c] !== world.h[c] && D.down[c] >= 0) c = D.down[c]; return D.filled[c]; }
+const surfaceM = i => heightM(D.lake[i] ? lakeLevel(i) : world.h[i]);
 const seaTemp = y => -7 + (y / H) * 35;
 const precip = i => 90 + Math.pow(world.m[i], 1.3) * 2900;
 const isLand = i => world.h[i] >= world.sea;

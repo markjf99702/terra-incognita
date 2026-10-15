@@ -401,6 +401,11 @@ const alongOut = []; for (let x = 413; x <= 430; x++) alongOut.push(await M((x) 
 ok(lakeAfter >= lakeBefore * 0.95, `a river drawn out of a lake leaves the lake (${lakeBefore} lake cells before, ${lakeAfter} after)`);
 ok(alongOut.filter(Boolean).length >= alongOut.length * 0.9, `and runs where it was drawn (${alongOut.filter(Boolean).length} of ${alongOut.length} points)`);
 
+// A lake reads one height from end to end. World 857490's lake read 1,036 m at one end and 1,037 m at the other.
+await M(() => window.terra.newWorld(857490, 'twin'));
+const ends = []; for (const [x, y] of [[372.5, 184.5], [368.5, 189.5]]) ends.push(await M(([x, y]) => window.terra.cell(x, y).lake, [x, y]) && parseInt((await readAt(x, y, 'Elevation')).replace(/,/g, ''), 10));
+ok(ends[0] > 0 && ends[0] === ends[1], `a lake reads one height from end to end (${ends[0]} m and ${ends[1]} m)`);
+
 // An island with a sea inside it: a town on the inner sea is on the coast of that sea, not the ocean outside, even
 // when the ocean's name is the only one on the map.
 await M(() => window.terra.startBlank());
