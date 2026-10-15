@@ -1851,7 +1851,7 @@ function renderCodex() {
   let h = '';
   const realms = D.realms.filter(r => match(r.display) || match(r.place.name));
   if (realms.length) {
-    h += `<div class="group-h">Realms</div><div class="clist">` + realms.map(r => `<button class="crow" data-id="${r.place.id}"><span class="ic"><span class="swatch" style="background:${r.color};width:13px;height:13px"></span></span><span><span class="nm">${esc(r.display)}</span><br><span class="meta">Capital ${esc(r.place.name)}</span></span><span class="meta mono">${fmtInt(r.area * KM * KM)} km²</span></button>`).join('') + `</div>`;
+    h += `<div class="group-h">Realms</div><div class="clist">` + realms.map(r => `<button class="crow" data-id="${r.place.id}"><span class="ic"><span class="swatch" style="background:${r.color};width:13px;height:13px"></span></span><span class="crow-text"><span class="nm">${esc(r.display)}</span><span class="meta">Capital ${esc(r.place.name)}</span></span><span class="meta mono">${fmtInt(r.area * KM * KM)} km²</span></button>`).join('') + `</div>`;
   }
   const groups = D.realms.map(r => ({ title: r.name, color: r.color, items: world.places.filter(p => ownerOf(p) === r.idx) }));
   groups.push({ title: 'Unclaimed lands', color: null, items: world.places.filter(p => ownerOf(p) < 0) });

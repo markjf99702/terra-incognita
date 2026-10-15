@@ -80,6 +80,19 @@ await page.reload();
 await page.waitForTimeout(400);
 ok(JSON.stringify(await realmRows()) === JSON.stringify(firstRealms), `the realms are the same size after a reload (${firstRealms[0]})`);
 
+// A long realm name wraps in the Codex rather than running into its area.
+const crowded = await S(() => {
+  document.getElementById('tab-codex').click();
+  const rows = [...document.querySelector('#codexList .clist').querySelectorAll('.crow')];
+  const bad = rows.filter((row) => {
+    const text = document.createRange(); text.selectNodeContents(row.querySelector('.nm'));
+    return Math.max(...[...text.getClientRects()].map((r) => r.right)) > row.querySelector('.meta.mono').getBoundingClientRect().left;
+  }).map((row) => row.querySelector('.nm').textContent);
+  document.getElementById('tab-inspect').click();
+  return bad;
+});
+ok(crowded.length === 0, 'realm names in the Codex stay clear of their areas' + (crowded.length ? ': ' + crowded.join(', ') : ''));
+
 // Start from blank ocean through the New world menu.
 await page.click('#btnNew');
 ok(await S(() => !document.getElementById('newMenu').hidden), 'New world opens a menu');
