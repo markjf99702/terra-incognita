@@ -79,6 +79,7 @@ const TONGUES = {
 const TONGUE_IDS = Object.keys(TONGUES);
 const ALL_TITLES = [...new Set(TONGUE_IDS.flatMap(t => TONGUES[t].titles).concat(['Free Cities', 'Theocracy', 'Empire', 'Kingdom']))];
 const REALM_COLORS = ['#B4473A', '#3A6EA5', '#7B4F9C', '#C18A1E', '#2C8779', '#A33F6D', '#5D7F2B', '#CF6A36', '#4A549A'];
+const REALM_COLOR_NAMES = ['Red', 'Blue', 'Purple', 'Ochre', 'Teal', 'Rose', 'Olive', 'Orange', 'Indigo']; // what a screen reader says
 
 function makeName(tg, rng, o = {}) {
   const T = TONGUES[tg] || TONGUES.vale;
@@ -1754,7 +1755,7 @@ function placeHTML(p) {
       <div class="field"><label for="rName">Name</label><input type="text" id="rName" value="${esc(p.realm.name)}"></div>
       <div class="field"><label for="rTitle">Title</label><select id="rTitle">${ALL_TITLES.map(t => `<option ${t === p.realm.title ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
       <div class="field"><label for="rTongue">Tongue</label><select id="rTongue">${TONGUE_IDS.map(t => `<option value="${t}" ${t === p.tongue ? 'selected' : ''}>${TONGUES[t].label}</option>`).join('')}</select></div>
-      <div class="field"><span class="h3" style="text-transform:none;letter-spacing:0;font-weight:400;font-size:12px">Color</span><div class="swatches" role="group" aria-label="Realm color">${REALM_COLORS.map(c => `<button data-color="${c}" style="background:${c}" aria-label="Color ${c}" aria-pressed="${c === p.realm.color}"></button>`).join('')}</div></div>
+      <div class="field"><span class="h3" style="text-transform:none;letter-spacing:0;font-weight:400;font-size:12px">Color</span><div class="swatches" role="group" aria-label="Realm color">${REALM_COLORS.map((c, k) => `<button data-color="${c}" style="background:${c}" aria-label="${REALM_COLOR_NAMES[k]}" aria-pressed="${c === p.realm.color}"></button>`).join('')}</div></div>
       <p class="note">${f.realm ? `<span class="mono">${fmtInt(f.realm.area * KM * KM)}</span> km², ${f.realm.count} settlement${f.realm.count === 1 ? '' : 's'}, about <span class="mono">${fmtInt(f.realm.pop)}</span> people.` : ''} New places founded here take their names from its tongue.</p>
     </div>`;
   }

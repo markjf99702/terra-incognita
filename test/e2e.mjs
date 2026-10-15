@@ -182,6 +182,7 @@ await page.click('#dKeep');
 ok((await page.inputValue('#pLore')).includes(rumor), 'keeping the rumor adds it to the notes');
 ok(await page.locator('#pWrite').isHidden(), 'the Claude history button stays hidden outside Claude');
 ok(!(await page.getAttribute('#pLore', 'placeholder')).includes('Claude'), 'and the notes box does not promise Claude either');
+ok((await page.locator('[data-color]').evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label')))).every((l) => /^[A-Z][a-z]+$/.test(l)), 'the realm colors are named for screen readers');
 
 // Undo steps back through edits on the page, but never takes notes away.
 const undoBefore = (await state()).undo;
