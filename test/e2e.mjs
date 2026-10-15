@@ -118,8 +118,12 @@ const town = (await S(() => window.terra.places())).find((p) => p.kind === 'capi
 await S((p) => { window.terra.select({ type: 'place', id: p.id }); }, town);
 await page.waitForSelector('#pName');
 ok((await page.inputValue('#pName')) === town.name, `${town.name} opens its page`);
-await page.click('#pRumor');
-const rumor = (await page.textContent('#draftBox')).trim();
+// A few rumors are about a neighbour or the realm rather than the town itself, so roll again until one names it.
+let rumor = '';
+for (let k = 0; k < 20 && !rumor.includes(town.name); k++) {
+  await page.click('#pRumor');
+  rumor = (await page.textContent('#draftBox')).trim();
+}
 ok(rumor.length > 30 && rumor.includes(town.name), 'a rumor names the town');
 await page.click('#dKeep');
 ok((await page.inputValue('#pLore')).includes(rumor), 'keeping the rumor adds it to the notes');
