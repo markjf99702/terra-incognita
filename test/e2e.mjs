@@ -456,6 +456,13 @@ for (const [seed, shape] of [[645278, 'inland'], [793904, 'twin'], [543439, 'twi
 ok(covered.length === 0, 'sea names stay clear of the scale bar' + (covered.length ? ': not in ' + covered.join(', ') : ''));
 await map.context().close();
 
+// The README counts the kinds of land the map can show.
+const readme = await readFile(join(root, 'README.md'), 'utf8'), appSrc = await readFile(join(root, 'js/app.js'), 'utf8');
+const landKinds = JSON.parse(appSrc.match(/const BIOME_NAME = (\[[^\]]*\])/)[1].replace(/'/g, '"')).filter((b) => b !== 'Open sea' && b !== 'Lake');
+const counted = readme.match(/(\w+) kinds of land/)[1].toLowerCase();
+const NUMBER = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+ok(NUMBER.indexOf(counted) === landKinds.length, `the README's "${counted} kinds of land" are the ${landKinds.length} the map shows`);
+
 // A phone held sideways fits the whole map on screen, zoom buttons included.
 const side = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const sidePage = watch(await side.newPage());

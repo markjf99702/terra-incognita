@@ -26,7 +26,7 @@ and sea stop them. Every town has a page for its story.
 - **Water finds its way.** Every patch of ground drains downhill to the sea. Where enough rain gathers there's a river,
   and every river has a name; where water can't get out it pools into a lake.
 - **Climate from latitude and height.** Cold in the north, warm in the south, 6.5 °C cooler for every kilometre up, and
-  rainfall in millimetres a year. Sixteen kinds of land, from ice sheet to jungle.
+  rainfall in millimetres a year. Fourteen kinds of land, from ice sheet to jungle.
 - **Realms.** A capital claims the land around it until hills, deserts and sea make going further too costly, and its
   towns push the border out. Each realm has its own tongue, so towns founded inside it sound like they belong there.
 - **Places.** Tap any town or patch of ground to see its position, elevation, climate, river, nearest neighbour and
