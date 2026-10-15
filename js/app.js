@@ -728,17 +728,32 @@ function unb64(str) { const s = atob(str); const u = new Uint8Array(s.length); f
 // and borders are worked out, so the map on screen is exactly the one a reload brings back.
 function snapToSave(a) { for (let i = 0; i < a.length; i++) a[i] = Math.round(clamp(a[i], 0, 1) * 65535) / 65535; }
 function packF(a) { const u = new Uint16Array(a.length); for (let i = 0; i < a.length; i++) u[i] = Math.round(clamp(a[i], 0, 1) * 65535); return b64(new Uint8Array(u.buffer)); }
-function unpackF(str) { const b = unb64(str); const u = new Uint16Array(b.buffer, 0, b.length >> 1); const f = new Float32Array(N); for (let i = 0; i < N; i++) f[i] = u[i] / 65535; return f; }
+function unpackF(str, whole) { const b = unb64(str); if (whole && b.length !== N * 2) throw new Error('bad'); const u = new Uint16Array(b.buffer, 0, b.length >> 1); const f = new Float32Array(N); for (let i = 0; i < N; i++) f[i] = u[i] / 65535; return f; }
 function serialize() {
   return JSON.stringify({ format: 'terra-incognita', version: 1, name: world.name, seed: world.seed, shape: world.shape, sea: world.sea, W, H, h: packF(world.h), m: packF(world.m), places: world.places, labels: world.labels, springs: world.springs || [], nextId: world.nextId, savedAt: new Date().toISOString() });
 }
-function loadObj(o) {
+// A world file must be whole: one cut short would open as a black map and then be autosaved over the world you had.
+function loadObj(o, fromFile) {
   if (!o || o.format !== 'terra-incognita' || o.W !== W || o.H !== H || typeof o.h !== 'string') throw new Error('bad');
-  const h = unpackF(o.h), m = unpackF(o.m);
+  const h = unpackF(o.h, fromFile), m = unpackF(o.m, fromFile);
+  const placed = q => q && typeof q.x === 'number' && typeof q.y === 'number' && isFinite(q.x) && isFinite(q.y);
   if (!world) world = { h, m }; else { world.h.set(h); world.m.set(m); }
-  Object.assign(world, { name: String(o.name || 'Untitled world'), seed: o.seed | 0, shape: SHAPES[o.shape] ? o.shape : 'continent', sea: clamp(+o.sea || 0.5, 0.4, 0.6), places: Array.isArray(o.places) ? o.places : [], labels: Array.isArray(o.labels) ? o.labels : [], nextId: o.nextId | 0 || 1,
+  Object.assign(world, { name: String(o.name || 'Untitled world'), seed: o.seed | 0, shape: SHAPES[o.shape] ? o.shape : 'continent', sea: clamp(+o.sea || 0.5, 0.4, 0.6), places: Array.isArray(o.places) ? o.places.filter(placed) : [], labels: Array.isArray(o.labels) ? o.labels.filter(placed) : [], nextId: o.nextId | 0 || 1,
     springs: Array.isArray(o.springs) ? o.springs.filter(sp => sp && isFinite(sp.x) && isFinite(sp.y)).map(sp => ({ x: clamp(+sp.x, 0, W), y: clamp(+sp.y, 0, H), flow: clamp(+sp.flow || 0, 0, 500) })) : [] });
-  for (const p of world.places) { if (!KINDS[p.kind]) p.kind = 'village'; if (!TONGUES[p.tongue]) p.tongue = 'vale'; p.name = String(p.name || 'Nameless'); p.lore = String(p.lore || ''); }
+  const items = world.places.concat(world.labels), ids = new Set(), colors = new Set(world.places.map(p => p.realm && p.realm.color));
+  for (const q of items) if (Number.isInteger(q.id)) world.nextId = Math.max(world.nextId, q.id + 1);
+  for (const q of items) { if (!Number.isInteger(q.id) || ids.has(q.id)) q.id = world.nextId++; ids.add(q.id); }
+  for (const p of world.places) {
+    if (!KINDS[p.kind]) p.kind = 'village'; if (!TONGUES[p.tongue]) p.tongue = 'vale'; p.name = String(p.name || 'Nameless'); p.lore = String(p.lore || ''); p.pop = Math.max(0, +p.pop || 0);
+    if (p.kind === 'landmark' && !LANDMARKS[p.sub]) p.sub = 'ruin';
+    // A capital always rules a realm; fill in whatever the file left out.
+    if (p.kind === 'capital') {
+      const r = p.realm && typeof p.realm === 'object' ? p.realm : {};
+      const color = /^#[0-9a-f]{6}$/i.test(r.color) ? r.color : REALM_COLORS.find(c => !colors.has(c)) || REALM_COLORS[0];
+      colors.add(color); p.realm = { name: String(r.name || 'Nameless'), title: String(r.title || TONGUES[p.tongue].titles[0]), color };
+    } else delete p.realm;
+  }
+  for (const l of world.labels) { l.text = String(l.text == null ? '' : l.text); if (!['region', 'sea', 'range'].includes(l.kind)) l.kind = 'region'; l.size = clamp(+l.size || 5, 3, 16); l.angle = clamp(+l.angle || 0, -60, 60); }
   computeTN();
 }
 // Save 0.9 s after the last change, and at least every 5 s while changes keep coming (typing a long note).
@@ -1940,7 +1955,7 @@ function bindWorldTab() {
     rd.onload = () => {
       let obj; try { obj = JSON.parse(rd.result); } catch (err) { toast('That file is not a Terra Incognita world.'); return; }
       pushUndo({ h: true, m: true, meta: true, world: true });
-      try { loadObj(obj); } catch (err) { undo(); redoStack.length = 0; updateUndoButtons(); toast('That file is not a Terra Incognita world.'); return; }
+      try { loadObj(obj, true); } catch (err) { undo(); redoStack.length = 0; updateUndoButtons(); toast('That file is not a Terra Incognita world.'); return; }
       ui.selected = null; dropDraft(); recomputeAll(); fitView(); syncWorldTab(); markDirty(); toast(`Opened ${world.name}.`, { label: 'Undo', fn: undo });
     };
     rd.readAsText(file); e.target.value = '';

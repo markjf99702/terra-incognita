@@ -249,6 +249,23 @@ await desk.click('#mnRandom');
 await desk.waitForTimeout(300);
 ok(await desk.evaluate((id) => { window.terra.select({ type: 'place', id }); return document.getElementById('draftBox').hidden; }, firstCap.id), 'an unkept rumor stays behind in the old world');
 
+// A world file that was cut short is refused, not opened as a black map. One with a realm missing its color still
+// opens, leaving out a place that has no position.
+await desk.click('#tab-world');
+const openFile = async (o) => {
+  await desk.setInputFiles('#wFile', { name: 'world.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(o)) });
+  await desk.waitForTimeout(400);
+  return desk.evaluate(() => [document.getElementById('toast').textContent, window.terra.state()]);
+};
+const nameBefore = (await desk.evaluate(() => window.terra.state())).name;
+const [cutToast, cutState] = await openFile({ ...saved, h: saved.h.slice(0, 4000) });
+ok(cutToast.startsWith('That file is not') && cutState.name === nameBefore, 'a world file that was cut short is refused');
+const damaged = JSON.parse(JSON.stringify(saved));
+delete damaged.places.find((p) => p.kind === 'capital').realm.color;
+delete damaged.places.find((p) => p.kind !== 'capital').x;
+const [damagedToast, damagedState] = await openFile(damaged);
+ok(damagedToast.startsWith('Opened') && damagedState.places === saved.places.length - 1, 'a world file with a realm missing its color opens');
+
 const real = problems.filter((p) => !/ERR_INTERNET_DISCONNECTED|net::ERR_FAILED/.test(p));
 ok(real.length === 0, 'no errors and nothing loaded from elsewhere' + (real.length ? ':\n' + real.join('\n') : ''));
 
