@@ -114,6 +114,9 @@ await page.waitForTimeout(300);
 st = await state();
 ok(st.land === 0 && st.places === 0 && st.shape === 'blank', 'blank ocean has no land and no places');
 ok(await S(() => document.querySelector('.tool[aria-pressed="true"]').dataset.tool === 'sketch'), 'the sketch tool is ready');
+// The tools are a row above the map on a phone and a column beside it on a laptop, so the tip doesn't say where.
+const tip = await page.textContent('#pane-inspect .tips li');
+ok(tip.includes('Sketch') && !/on the (left|right)|above|below/.test(tip), `the first tip on open water names Sketch without saying which side it is on ("${tip.slice(0, 40)}...")`);
 
 // On open water there are no realms to found and nothing to flood, so nothing changes and it says so.
 await page.click('#tab-world');

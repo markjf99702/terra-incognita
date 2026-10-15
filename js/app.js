@@ -1807,7 +1807,7 @@ function welcomeHTML() {
   if (!land) return `<div class="welcome">${head}
     <p>Open water, waiting for its first coastline.</p>
     <ul class="tips">
-      <li>Pick <b>Sketch</b> on the left, choose <b>Land</b>, and draw a loop on the sea. Land rises inside it, with hills and a natural coast.</li>
+      <li>With <b>Sketch</b> and <b>Land</b> picked, draw a loop on the sea. Land rises inside it, with hills and a natural coast.</li>
       <li>Choose <b>Sea</b> to carve bays, straits and inland seas, <b>Mountain range</b> to draw a ridge line, or <b>River</b> to run water from a source to the coast. Other rivers and lakes form on their own.</li>
       <li>When the land looks right, <b>Found new realms</b> in the World tab fills it with towns, borders and names.</li>
     </ul></div>${JD_FOOT}`;
