@@ -682,7 +682,7 @@ function newWorld(seed, shape, opts = {}) {
   populate(seed);
   const rng = mulberry32(seed + 404);
   world.name = worldTitle(shape, rng, D.realms.length ? D.realms[0].tongue : 'vale');
-  ui.selected = null;
+  ui.selected = null; dropDraft();
   recomputeAll();
 }
 
@@ -711,10 +711,12 @@ function applySnap(s) {
   }
   return inv;
 }
-function undo() { const s = undoStack.pop(); if (!s) return; redoStack.push(applySnap(s)); afterRestore(); }
-function redo() { const s = redoStack.pop(); if (!s) return; undoStack.push(applySnap(s)); afterRestore(); }
-function afterRestore() {
-  if (ui.selected && ui.selected.type !== 'loc' && !findSel(ui.selected)) ui.selected = null;
+function undo() { const s = undoStack.pop(); if (!s) return; redoStack.push(applySnap(s)); afterRestore(s.world); }
+function redo() { const s = redoStack.pop(); if (!s) return; undoStack.push(applySnap(s)); afterRestore(s.world); }
+function afterRestore(otherWorld) {
+  // Back to a different world: as with a new one, nothing from the world just left stays open.
+  if (otherWorld) { ui.selected = null; dropDraft(); }
+  else if (ui.selected && ui.selected.type !== 'loc' && !findSel(ui.selected)) ui.selected = null;
   recomputeAll(); updateUndoButtons(); markDirty(); syncWorldTab();
 }
 function updateUndoButtons() { $('#btnUndo').disabled = !undoStack.length; $('#btnRedo').disabled = !redoStack.length; }
@@ -1662,10 +1664,12 @@ function kindGlyph(p, sz = 16) {
   const lm = LM_PATHS[p.sub] || LM_PATHS.ruin;
   return `<svg width="${sz}" height="${sz}" viewBox="-8 -8 16 16" aria-hidden="true"><path d="${lm.d}" ${lm.fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"'}/>${lm.inner ? `<path d="${lm.inner}" style="fill:var(--panel)"/>` : ''}</svg>`;
 }
+// A rumor or history that hasn't been kept belongs to one place; it goes when that place is left or the world changes.
+function dropDraft() { if (draft.ctl) draft.ctl.abort(); Object.assign(draft, { placeId: null, text: '', busy: false, kind: '', note: '', ctl: null }); }
 function select(sel) {
   ui.selected = sel;
   if (sel) showTab('inspect');
-  if (!sel || sel.type !== 'place' || draft.placeId !== sel.id) { if (draft.ctl) draft.ctl.abort(); Object.assign(draft, { placeId: null, text: '', busy: false, kind: '', note: '', ctl: null }); }
+  if (!sel || sel.type !== 'place' || draft.placeId !== sel.id) dropDraft();
   renderInspector(); requestDraw();
 }
 function renderInspector() {
@@ -1937,7 +1941,7 @@ function bindWorldTab() {
       let obj; try { obj = JSON.parse(rd.result); } catch (err) { toast('That file is not a Terra Incognita world.'); return; }
       pushUndo({ h: true, m: true, meta: true, world: true });
       try { loadObj(obj); } catch (err) { undo(); redoStack.length = 0; updateUndoButtons(); toast('That file is not a Terra Incognita world.'); return; }
-      ui.selected = null; recomputeAll(); fitView(); syncWorldTab(); markDirty(); toast(`Opened ${world.name}.`, { label: 'Undo', fn: undo });
+      ui.selected = null; dropDraft(); recomputeAll(); fitView(); syncWorldTab(); markDirty(); toast(`Opened ${world.name}.`, { label: 'Undo', fn: undo });
     };
     rd.readAsText(file); e.target.value = '';
   };

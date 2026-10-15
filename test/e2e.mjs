@@ -240,6 +240,15 @@ await desk.mouse.click(mapBox.x + at.x, mapBox.y + at.y);
 const setting = await settingOf(coastal.id);
 ok(setting.startsWith('On the coast of the Gulf of Testing'), `a sea's name reads as it should in a sentence (${coastal.name}: "${setting}")`);
 
+// A rumor that wasn't kept stays with its place, not with whatever has its id in a new world.
+const firstCap = (await desk.evaluate(() => window.terra.places())).find((p) => p.kind === 'capital');
+await desk.evaluate((id) => window.terra.select({ type: 'place', id }), firstCap.id);
+await desk.click('#pRumor');
+await desk.click('#btnNew');
+await desk.click('#mnRandom');
+await desk.waitForTimeout(300);
+ok(await desk.evaluate((id) => { window.terra.select({ type: 'place', id }); return document.getElementById('draftBox').hidden; }, firstCap.id), 'an unkept rumor stays behind in the old world');
+
 const real = problems.filter((p) => !/ERR_INTERNET_DISCONNECTED|net::ERR_FAILED/.test(p));
 ok(real.length === 0, 'no errors and nothing loaded from elsewhere' + (real.length ? ':\n' + real.join('\n') : ''));
 
