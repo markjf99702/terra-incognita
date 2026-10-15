@@ -68,6 +68,18 @@ let st = await state();
 ok(st.realms >= 2 && st.places >= 20 && st.rivers > 200 && st.labels >= 2, `the starting world has realms, towns, rivers and labels (${st.realms} realms, ${st.places} places)`);
 ok(await page.locator('#pane-inspect .welcome').isVisible(), 'the gazetteer greets you');
 
+// Borders come from the land, the capitals and their towns, so a reload brings back the same realms.
+const realmRows = () => S(() => {
+  document.getElementById('tab-codex').click();
+  const rows = [...document.querySelector('#codexList .clist').querySelectorAll('.crow')].map((r) => `${r.querySelector('.nm').textContent} ${r.querySelector('.meta.mono').textContent}`);
+  document.getElementById('tab-inspect').click();
+  return rows;
+});
+const firstRealms = await realmRows();
+await page.reload();
+await page.waitForTimeout(400);
+ok(JSON.stringify(await realmRows()) === JSON.stringify(firstRealms), `the realms are the same size after a reload (${firstRealms[0]})`);
+
 // Start from blank ocean through the New world menu.
 await page.click('#btnNew');
 ok(await S(() => !document.getElementById('newMenu').hidden), 'New world opens a menu');

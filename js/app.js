@@ -135,7 +135,7 @@ const D = {
   biome: new Uint8Array(N), temp: new Float32Array(N), tN: new Float32Array(N),
   filled: new Float32Array(N), down: new Int32Array(N), acc: new Float32Array(N), order: new Int32Array(N), lake: new Uint8Array(N), lakeF: new Float32Array(N),
   vis: new Uint8Array(N), isR: new Uint8Array(N), hasUp: new Uint8Array(N), mouth: new Int32Array(N),
-  owner: new Int16Array(N), cost: new Float32Array(N), ind: new Float32Array(N), tmp: new Float32Array(N), dist: new Int16Array(N), q: new Int32Array(N),
+  owner: new Int16Array(N), cost: new Float64Array(N), ind: new Float32Array(N), tmp: new Float32Array(N), dist: new Int16Array(N), q: new Int32Array(N),
   realms: [], borders: [], coast: new Path2D(), contours: null, riverPaths: [], riverLabels: [], glyphs: [], riverNames: new Map(),
 };
 const view = { s: 1, s0: 1, ox: 0, oy: 0, cw: 0, ch: 0, dpr: 1 };
