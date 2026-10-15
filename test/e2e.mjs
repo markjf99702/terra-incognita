@@ -347,6 +347,17 @@ await desk.keyboard.press('Tab');
 await desk.keyboard.press('Tab');
 ok(menuFocus === 'mnRandom' && await desk.evaluate(() => document.getElementById('newMenu').hidden), 'tabbing on past the New world menu closes it');
 
+// The arrow keys move through the New world menu and along the panel tabs, which are one stop for Tab.
+await desk.focus('#btnNew');
+await desk.keyboard.press('Enter');
+await desk.keyboard.press('ArrowDown');
+const menuNext = await desk.evaluate(() => document.activeElement.id);
+await desk.keyboard.press('Escape');
+await desk.click('#tab-inspect');
+await desk.keyboard.press('ArrowRight');
+const tabNow = await desk.evaluate(() => [document.activeElement.id, document.getElementById('tab-codex').getAttribute('aria-selected'), [...document.querySelectorAll('[role=tab]')].filter((t) => t.tabIndex === 0).length]);
+ok(menuNext === 'mnBlank' && tabNow[0] === 'tab-codex' && tabNow[1] === 'true' && tabNow[2] === 1, 'the arrow keys move through the menu and along the tabs');
+
 // A phone held sideways fits the whole map on screen, zoom buttons included.
 const side = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const sidePage = watch(await side.newPage());

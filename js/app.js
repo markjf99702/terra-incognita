@@ -1915,7 +1915,7 @@ function renderCodex() {
 // ------------------------------------------------------------------ tabs, world tab
 function showTab(t) {
   ui.tab = t;
-  for (const k of ['inspect', 'codex', 'world']) { $('#tab-' + k).setAttribute('aria-selected', String(k === t)); $('#pane-' + k).hidden = k !== t; }
+  for (const k of ['inspect', 'codex', 'world']) { const b = $('#tab-' + k); b.setAttribute('aria-selected', String(k === t)); b.tabIndex = k === t ? 0 : -1; $('#pane-' + k).hidden = k !== t; }
   if (t === 'codex') renderCodex();
   if (t === 'world') syncWorldTab();
 }
@@ -2063,6 +2063,18 @@ function init() {
   $('#styleTerrain').onclick = () => setStyle('terrain'); $('#styleAtlas').onclick = () => setStyle('atlas');
   $('#zIn').onclick = () => zoomAt(view.cw / 2, view.ch / 2, 1.35); $('#zOut').onclick = () => zoomAt(view.cw / 2, view.ch / 2, 1 / 1.35); $('#zFit').onclick = fitView;
   for (const k of ['inspect', 'codex', 'world']) $('#tab-' + k).onclick = () => showTab(k);
+  // The arrow keys move along the tabs and through the New world menu, as those roles promise a screen reader.
+  $('.tabs').addEventListener('keydown', e => {
+    const ids = ['inspect', 'codex', 'world'], k = ids.indexOf(ui.tab), to = { ArrowRight: k + 1, ArrowLeft: k - 1, Home: 0, End: 2 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault(); const id = ids[(to + 3) % 3]; showTab(id); $('#tab-' + id).focus();
+  });
+  $('#newMenu').addEventListener('keydown', e => {
+    const items = [...$('#newMenu').querySelectorAll('[role="menuitem"]')], k = items.indexOf(document.activeElement);
+    const to = { ArrowDown: k + 1, ArrowUp: k - 1, Home: 0, End: items.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault(); items[(to + items.length) % items.length].focus();
+  });
   $('#codexQ').addEventListener('input', renderCodex);
   if (firstRun) saveLocal();
   refreshPlate();
