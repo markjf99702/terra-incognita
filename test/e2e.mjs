@@ -51,18 +51,18 @@ const state = () => S(() => window.terra.state());
 const ok = (cond, msg) => { assert.ok(cond, msg); console.log('  ok  ' + msg); };
 
 // Drags along a path given in map cells (the map is 480 x 300 cells).
-async function drag(points, steps = 6) {
+async function drag(points, steps = 6, pg = page) {
   // Picking a tool option can change the toolbar's height and so the map's place on the page; let it settle first.
-  await S(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-  const b = await page.locator('#map').boundingBox();
+  await pg.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const b = await pg.locator('#map').boundingBox();
   const pts = [];
-  for (const [x, y] of points) { const p = await S(([x, y]) => window.terra.toScreen(x, y), [x, y]); pts.push([b.x + p.x, b.y + p.y]); }
-  await page.mouse.move(...pts[0]); await page.mouse.down();
+  for (const [x, y] of points) { const p = await pg.evaluate(([x, y]) => window.terra.toScreen(x, y), [x, y]); pts.push([b.x + p.x, b.y + p.y]); }
+  await pg.mouse.move(...pts[0]); await pg.mouse.down();
   for (let k = 1; k < pts.length; k++) for (let s = 1; s <= steps; s++) {
-    await page.mouse.move(pts[k - 1][0] + (pts[k][0] - pts[k - 1][0]) * s / steps, pts[k - 1][1] + (pts[k][1] - pts[k - 1][1]) * s / steps);
+    await pg.mouse.move(pts[k - 1][0] + (pts[k][0] - pts[k - 1][0]) * s / steps, pts[k - 1][1] + (pts[k][1] - pts[k - 1][1]) * s / steps);
   }
-  await page.mouse.up();
-  await page.waitForTimeout(250);
+  await pg.mouse.up();
+  await pg.waitForTimeout(250);
 }
 
 await page.goto(base);
@@ -380,6 +380,20 @@ ok(await M(() => window.terra.cell(403.5, 160.5).lake && window.terra.cell(408.5
 const heights = []; for (const [x, y] of [[403.5, 160.5], [408.5, 162.5], [400.5, 159.5]]) heights.push(parseInt((await readAt(x, y, 'Elevation')).replace(/,/g, ''), 10));
 const [lakeA, lakeB, shore] = heights;
 ok(lakeA === lakeB && Math.abs(lakeA - shore) <= 15, `a lake reads as its surface, level with the shore (${lakeA} m and ${lakeB} m out on it, ${shore} m on the shore)`);
+
+// A river drawn from out on that lake to the sea leaves the lake as it was, and runs where it was drawn.
+const lakeCells = () => M(() => { let n = 0; for (let y = 152; y <= 170; y++) for (let x = 396; x <= 416; x++) if (window.terra.cell(x + 0.5, y + 0.5).lake) n++; return n; });
+const lakeBefore = await lakeCells();
+await map.keyboard.press('Escape');
+await map.keyboard.press('p');
+await map.click('.chip[data-v="river"]');
+const outflow = [[406, 161], [409, 160], [412, 159.5], [418, 159.5], [426, 159.5], [434, 159.5], [440, 159.5]];
+ok(await M(() => window.terra.cell(440, 159.5).h < 0), 'and the sea a few leagues east of it');
+await drag(outflow, 6, map);
+const lakeAfter = await lakeCells();
+const alongOut = []; for (let x = 413; x <= 430; x++) alongOut.push(await M((x) => window.terra.riverNear(x, 159.5), x));
+ok(lakeAfter >= lakeBefore * 0.95, `a river drawn out of a lake leaves the lake (${lakeBefore} lake cells before, ${lakeAfter} after)`);
+ok(alongOut.filter(Boolean).length >= alongOut.length * 0.9, `and runs where it was drawn (${alongOut.filter(Boolean).length} of ${alongOut.length} points)`);
 
 await map.context().close();
 

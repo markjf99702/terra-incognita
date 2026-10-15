@@ -1332,29 +1332,62 @@ function sketchRiver(raw) {
   let first = 0; while (first < n && hAt(first) < sea) first++;
   if (first >= n - 2) { toast('Rivers need dry land to run across. Start the line on land.'); return; }
   let last = n - 1; for (let k = first; k < n; k++) if (hAt(k) < sea) { last = k; break; }
+  // Lakes keep their water. A lake stands at the height of the pass it spills over (D.filled creeps up a hair across a
+  // lake, so follow the water down to that pass), and a basin is any hollow deeper than a hair.
+  const basin = i => D.filled[i] - h[i] > 1e-4, spillAt = new Map();
+  const spill = i => {
+    const path = []; let c = i;
+    while (D.filled[c] !== h[c] && D.down[c] >= 0 && !spillAt.has(c)) { path.push(c); c = D.down[c]; }
+    const s = spillAt.has(c) ? spillAt.get(c) : D.filled[c];
+    for (const p of path) spillAt.set(p, s);
+    return s;
+  };
   // A bed that only ever runs downhill and sits below the lowest ground on either side of the line, so the water
-  // can't spill out of the valley sideways. It never goes below sea level on land.
+  // can't spill out of the valley sideways. It never goes below sea level on land. Where the line crosses a lake the
+  // bed is the lake's surface, and it reaches a lake no lower than that, so the lake drains only down the drawn river.
   const Wv = ui.sketch.valley, reach = Math.max(1.5, Wv * 0.8);
+  let dry = Infinity; // the lowest ground beside the line at the last lowAround, leaving out lakes and hollows
   const lowAround = k => {
-    const cx = pts[2 * k], cy = pts[2 * k + 1]; let lo = Infinity;
+    const cx = pts[2 * k], cy = pts[2 * k + 1]; let lo = Infinity; dry = Infinity;
     for (let y = Math.floor(cy - reach); y <= Math.ceil(cy + reach); y++) for (let x = Math.floor(cx - reach); x <= Math.ceil(cx + reach); x++) {
       if ((x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 > reach * reach) continue;
-      const v = h[cellAt(x, y)]; if (v < lo) lo = v;
+      const c = cellAt(x, y), wet = basin(c), v = wet ? D.filled[c] + 0.004 : h[c]; if (v < lo) lo = v; if (!wet && h[c] < dry) dry = h[c];
     }
     return Math.max(lo, sea);
   };
-  const bed = new Float32Array(n); let prev = Infinity;
+  // A lake the line comes down to keeps its level. One it would have to climb into, past lower ground, is cut down.
+  // Lower ground beside the line counts too, except right at a lake's shore, where the far side of its rim is lower.
+  const ahead = new Float64Array(n).fill(Infinity);
+  for (let k = last - 1, d = Infinity; k >= first; k--) ahead[k] = d = D.lake[cellAt(pts[2 * k], pts[2 * k + 1])] ? 0 : d + 0.7;
+  const bed = new Float32Array(n), lakeAt = new Float64Array(n), cut = new Set(); let prev = Infinity, dip = Infinity;
   for (let k = first; k <= last; k++) {
     if (hAt(k) < sea) { bed[k] = sea + 0.0003; continue; }
+    const c = cellAt(pts[2 * k], pts[2 * k + 1]);
+    if (D.lake[c]) {
+      const s = spill(c);
+      if (dip >= s && !cut.has(s)) { lakeAt[k] = s; bed[k] = prev = s - 3e-5; dip = s; continue; }
+      cut.add(s);
+    }
     const b = Math.max(Math.min(prev - 2e-5, lowAround(k) - 0.004), sea + 0.0004 + 2e-6 * (last - k));
-    bed[k] = b; prev = b;
+    bed[k] = b; prev = b; dip = Math.min(dip, ahead[k] > reach + 2 ? dry : basin(c) ? Infinity : h[c]);
   }
+  for (let k = last, lv = 0; k >= first; k--) { if (lakeAt[k]) lv = lakeAt[k]; else if (bed[k] < lv) bed[k] = lv; }
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (let k = first; k <= last; k++) { minX = Math.min(minX, pts[2 * k]); maxX = Math.max(maxX, pts[2 * k]); minY = Math.min(minY, pts[2 * k + 1]); maxY = Math.max(maxY, pts[2 * k + 1]); }
   const bx0 = clamp(Math.floor(minX - Wv) - 1, 0, W - 1), bx1 = clamp(Math.ceil(maxX + Wv) + 1, 0, W - 1), by0 = clamp(Math.floor(minY - Wv) - 1, 0, H - 1), by1 = clamp(Math.ceil(maxY + Wv) + 1, 0, H - 1);
+  // A lake keeps its cells, and the ground beside a lake or hollow is cut no lower than its water, so it keeps its
+  // shore; only the channel's own bed goes a hair under, which makes the drawn river the way out. Worked out before
+  // anything is cut.
+  const bw = bx1 - bx0 + 1, keep = new Float32Array(bw * (by1 - by0 + 1));
+  for (let gy = by0; gy <= by1; gy++) for (let gx = bx0; gx <= bx1; gx++) {
+    let kv = 0;
+    if (D.lake[gy * W + gx] && !cut.has(spill(gy * W + gx))) kv = -1;
+    else for (let q = 0; q < 8; q++) { const nx = gx + NBX[q], ny = gy + NBY[q]; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const j = ny * W + nx; if (basin(j) && !cut.has(spill(j))) kv = Math.max(kv, spill(j)); }
+    keep[(gy - by0) * bw + gx - bx0] = kv;
+  }
   pushUndo({ h: true, meta: true });
   for (let gy = by0; gy <= by1; gy++) for (let gx = bx0; gx <= bx1; gx++) {
-    const gi = gy * W + gx; if (h[gi] < sea) continue;
+    const gi = gy * W + gx, kv = keep[(gy - by0) * bw + gx - bx0]; if (h[gi] < sea || kv < 0) continue;
     const px = gx + 0.5, py = gy + 0.5; let bd = Infinity, bb = 0;
     for (let k = first; k < last; k++) {
       const ax = pts[2 * k], ay = pts[2 * k + 1], vx = pts[2 * k + 2] - ax, vy = pts[2 * k + 3] - ay, ll = vx * vx + vy * vy;
@@ -1365,7 +1398,8 @@ function sketchRiver(raw) {
     if (bd < Wv) {
       // A flat channel about two cells wide at the bed, then banks rising to the old ground at the valley's edge.
       const f = bd <= 1 ? 0 : Math.pow((bd - 1) / Math.max(1, Wv - 1), 1.4);
-      const target = bb + (h[gi] - bb) * f; if (target < h[gi]) h[gi] = Math.max(target, sea + 0.0003);
+      const target = Math.max(bb + (h[gi] - bb) * f, kv ? kv - (bd <= 1 ? 3e-5 : 0) : sea + 0.0003);
+      if (target < h[gi]) h[gi] = target;
     }
   }
   if (!world.springs) world.springs = [];
