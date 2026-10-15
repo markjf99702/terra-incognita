@@ -361,6 +361,28 @@ await desk.keyboard.press('ArrowRight');
 const tabNow = await desk.evaluate(() => [document.activeElement.id, document.getElementById('tab-codex').getAttribute('aria-selected'), [...document.querySelectorAll('[role=tab]')].filter((t) => t.tabIndex === 0).length]);
 ok(menuNext === 'mnBlank' && tabNow[0] === 'tab-codex' && tabNow[1] === 'true' && tabNow[2] === 1, 'the arrow keys move through the menu and along the tabs');
 
+// What the map says about itself, on a laptop-sized screen.
+const map = watch(await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage());
+await map.goto(base);
+await map.evaluate(() => document.fonts.ready);
+const M = (fn, arg) => map.evaluate(fn, arg);
+const clickMap = async (x, y) => {
+  const b = await map.locator('#map').boundingBox(), p = await M(([x, y]) => window.terra.toScreen(x, y), [x, y]);
+  await map.mouse.click(b.x + p.x, b.y + p.y);
+};
+const row = (name) => M((name) => { const dd = [...document.querySelectorAll('#pane-inspect .facts dd')].find((d) => d.previousElementSibling.textContent === name); return dd ? dd.textContent : ''; }, name);
+const readAt = async (x, y, name) => { await M(([x, y]) => window.terra.select({ type: 'loc', x, y }), [x, y]); return row(name); };
+
+// World 96298 has a lake at 401-411 across, 157-166 down. Every part of it reads as the water's surface, level with its
+// shore, rather than the lake bed under it.
+await M(() => window.terra.newWorld(96298, 'continent'));
+ok(await M(() => window.terra.cell(403.5, 160.5).lake && window.terra.cell(408.5, 162.5).lake && !window.terra.cell(400.5, 159.5).lake), 'world 96298 has its lake, with dry shore to its west');
+const heights = []; for (const [x, y] of [[403.5, 160.5], [408.5, 162.5], [400.5, 159.5]]) heights.push(parseInt((await readAt(x, y, 'Elevation')).replace(/,/g, ''), 10));
+const [lakeA, lakeB, shore] = heights;
+ok(lakeA === lakeB && Math.abs(lakeA - shore) <= 15, `a lake reads as its surface, level with the shore (${lakeA} m and ${lakeB} m out on it, ${shore} m on the shore)`);
+
+await map.context().close();
+
 // A phone held sideways fits the whole map on screen, zoom buttons included.
 const side = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const sidePage = watch(await side.newPage());

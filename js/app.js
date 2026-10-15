@@ -144,7 +144,10 @@ const view = { s: 1, s0: 1, ox: 0, oy: 0, cw: 0, ch: 0, dpr: 1 };
 const mkCanvas = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'); return { c, x, img: x.createImageData(W, H) }; };
 const L_SEA = mkCanvas(), L_LAND = mkCanvas(), L_TINT = mkCanvas();
 
-function elevM(i) { const h = world.h[i], s = world.sea; if (h < s) return -MAX_DEPTH * Math.pow((s - h) / s, 0.85); return MAX_ELEV * Math.pow((h - s) / (1 - s), 1.6); }
+function heightM(h) { const s = world.sea; if (h < s) return -MAX_DEPTH * Math.pow((s - h) / s, 0.85); return MAX_ELEV * Math.pow((h - s) / (1 - s), 1.6); }
+const elevM = i => heightM(world.h[i]);
+// What a spot reads as: the ground, or on a lake, the water's surface rather than the lake bed.
+const surfaceM = i => heightM(D.lake[i] ? D.filled[i] : world.h[i]);
 const seaTemp = y => -7 + (y / H) * 35;
 const precip = i => 90 + Math.pow(world.m[i], 1.3) * 2900;
 const isLand = i => world.h[i] >= world.sea;
@@ -257,7 +260,7 @@ function computeClimate(x0 = 0, y0 = 0, x1 = W - 1, y1 = H - 1) {
   for (let y = y0; y <= y1; y++) {
     const Ts = seaTemp(y);
     for (let x = x0; x <= x1; x++) {
-      const i = y * W + x, E = elevM(i);
+      const i = y * W + x, E = surfaceM(i);
       const T = Ts + D.tN[i] * 3 - (E > 0 ? E * 0.0065 : 0);
       D.temp[i] = T;
       let b;
@@ -1592,7 +1595,7 @@ function updateStatus() {
   if (!hover) { el.hidden = true; return; }
   const w = toWorld(hover.x, hover.y);
   if (w.x < 0 || w.y < 0 || w.x >= W || w.y >= H) { el.hidden = true; return; }
-  const i = cellAt(w.x, w.y), E = elevM(i), water = world.h[i] < world.sea && !D.lake[i];
+  const i = cellAt(w.x, w.y), E = surfaceM(i), water = world.h[i] < world.sea && !D.lake[i];
   const parts = [fmtPos(w.x, w.y), water ? `${fmtInt(-E)} m deep` : `${fmtInt(Math.max(0, E))} m`, BIOME_NAME[D.biome[i]], `${Math.round(D.temp[i])} °C`];
   const own = D.owner[i]; if (own >= 0 && !water && D.realms[own]) parts.push(D.realms[own].name);
   el.textContent = parts.join('  ·  '); el.hidden = false;
@@ -1603,7 +1606,7 @@ function nearestSeaLabel(x, y) { let best = null, bd = Infinity; for (const l of
 // A sea's name in the middle of a sentence: "the Lasgmias Sound", "the Sea of Kamkod".
 const seaInText = t => /^The /.test(t) ? 'the ' + t.slice(4) : /^(Sea|Bay|Gulf|Sound|Straits?|Ocean|Lake) of /.test(t) ? 'the ' + t : t;
 function facts(x, y, self) {
-  const i = cellAt(x, y), h = world.h, sea = world.sea, water = h[i] < sea, lake = !!D.lake[i], E = elevM(i);
+  const i = cellAt(x, y), h = world.h, sea = world.sea, water = h[i] < sea, lake = !!D.lake[i], E = surfaceM(i);
   const f = { i, x, y, water, lake, E, temp: D.temp[i], precip: precip(i), b: D.biome[i], biome: BIOME_NAME[D.biome[i]] };
   f.owner = D.owner[i]; f.realm = f.owner >= 0 ? D.realms[f.owner] : null;
   f.coastal = !water && nearWater(i, 2);
@@ -2103,6 +2106,8 @@ window.terra = {
   },
   toScreen: (x, y) => ({ x: view.ox + x * view.s, y: view.oy + y * view.s }),
   mapImage: (S = 2, allNames = true) => renderMapImage(S, allNames).toDataURL('image/png'),
+  // What lies at a map cell: its height against sea level (below zero in the sea), and whether it holds a lake or a river.
+  cell: (x, y) => { const i = cellAt(x, y); return { h: world.h[i] - world.sea, lake: !!D.lake[i], river: !!D.isR[i] }; },
   riverNear: (x, y, r = 1.5) => {
     for (let dy = -Math.ceil(r); dy <= Math.ceil(r); dy++) for (let dx = -Math.ceil(r); dx <= Math.ceil(r); dx++) {
       if (dx * dx + dy * dy > r * r) continue; const i = cellAt(x + dx, y + dy); if (D.isR[i]) return true;
