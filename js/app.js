@@ -1267,25 +1267,43 @@ function sketchLoop(pts, mode) {
   const dIn = chamfer(inside, bw, bh, 1), dOut = chamfer(inside, bw, bh, 0);
   let maxIn = 0; for (let i = 0; i < inside.length; i++) if (inside[i] && dIn[i] > maxIn) maxIn = dIn[i];
   const R = clamp(maxIn * 0.65, 4, 45), nz1 = sketchNoise(1), nz2 = sketchNoise(2), nz3 = sketchNoise(3);
+  // Near the line, a cell's true distance from it, so the coast follows the drawn curve rather than the cell grid. The
+  // line's pieces are sorted into 4-cell squares first, so each cell only looks at the pieces around it.
+  const edge = new Float32Array(bw * bh).fill(-1), gw = Math.ceil(bw / 4) + 1, gh = Math.ceil(bh / 4) + 1, near = Array.from({ length: gw * gh }, () => []);
+  for (let k = 0, j = n - 1; k < n; j = k++) {
+    const qx0 = clamp(Math.floor((Math.min(pts[2 * j], pts[2 * k]) - bx0) / 4), 0, gw - 1), qx1 = clamp(Math.floor((Math.max(pts[2 * j], pts[2 * k]) - bx0) / 4), 0, gw - 1);
+    const qy0 = clamp(Math.floor((Math.min(pts[2 * j + 1], pts[2 * k + 1]) - by0) / 4), 0, gh - 1), qy1 = clamp(Math.floor((Math.max(pts[2 * j + 1], pts[2 * k + 1]) - by0) / 4), 0, gh - 1);
+    for (let qy = qy0; qy <= qy1; qy++) for (let qx = qx0; qx <= qx1; qx++) near[qy * gw + qx].push(j);
+  }
+  for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) {
+    const li = y * bw + x; if ((inside[li] ? dIn[li] : dOut[li]) >= 2.5) continue;
+    const px = bx0 + x + 0.5, py = by0 + y + 0.5, qx = (x / 4) | 0, qy = (y / 4) | 0; let bd = Infinity;
+    for (let sy = Math.max(0, qy - 1); sy <= Math.min(gh - 1, qy + 1); sy++) for (let sx = Math.max(0, qx - 1); sx <= Math.min(gw - 1, qx + 1); sx++) for (const j of near[sy * gw + sx]) {
+      const k = (j + 1) % n, ax = pts[2 * j], ay = pts[2 * j + 1], vx = pts[2 * k] - ax, vy = pts[2 * k + 1] - ay, ll = vx * vx + vy * vy;
+      const t = ll ? clamp(((px - ax) * vx + (py - ay) * vy) / ll, 0, 1) : 0, d = (px - ax - vx * t) ** 2 + (py - ay - vy * t) ** 2; if (d < bd) bd = d;
+    }
+    edge[li] = Math.sqrt(bd);
+  }
   // How far a cell lies inside the drawn coast (negative outside it), with the coast roughened.
-  const depth = (li, gx, gy) => (inside[li] ? dIn[li] - 0.5 : -(dOut[li] - 0.5)) + (amp ? fbm(nz1, gx * 0.07, gy * 0.07, 4) * amp + fbm(nz2, gx * 0.025, gy * 0.025, 3) * amp * 0.9 : 0);
+  const depth = (li, gx, gy) => { const b = edge[li] >= 0 ? edge[li] : (inside[li] ? dIn[li] : dOut[li]) - 0.5; return (inside[li] ? b : -b) + (amp ? fbm(nz1, gx * 0.07, gy * 0.07, 4) * amp + fbm(nz2, gx * 0.025, gy * 0.025, 3) * amp * 0.9 : 0); };
   if (mode === 'sea') {
     let floods = false;
     for (let y = 0; y < bh && !floods; y++) for (let x = 0; x < bw; x++) { const gx = bx0 + x, gy = by0 + y; if (h[gy * W + gx] >= sea && depth(y * bw + x, gx, gy) > 0) { floods = true; break; } }
     if (!floods) { toast('Nothing to flood there. Draw the loop over land.'); return; }
   }
   pushUndo({ h: true });
+  // The ground crosses sea level at the drawn line itself, so the coast is as smooth as the line.
   for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) {
     const li = y * bw + x, gx = bx0 + x, gy = by0 + y, gi = gy * W + gx;
     const d = depth(li, gx, gy);
     if (mode === 'land') {
       if (d > 0) {
         const t = smooth(0, R, d), hn = fbm(nz3, gx * 0.045, gy * 0.045, 4);
-        h[gi] = Math.max(h[gi], sea + 0.004 + rel * t * clamp(0.5 + 0.75 * hn, 0.1, 1.25));
-      } else if (-d < 14 && h[gi] < sea) h[gi] = Math.max(h[gi], sea - 0.006 - 0.16 * smooth(0, 14, -d));
+        h[gi] = Math.max(h[gi], sea + 0.004 * Math.min(1, d) + rel * t * clamp(0.5 + 0.75 * hn, 0.1, 1.25));
+      } else if (-d < 14 && h[gi] < sea) h[gi] = Math.max(h[gi], sea - 0.006 * Math.min(1, -d) - 0.16 * smooth(0, 14, -d));
     } else {
-      if (d > 0) h[gi] = Math.min(h[gi], sea - 0.006 - 0.2 * smooth(0, R, d));
-      else if (-d < 6 && h[gi] >= sea) h[gi] = Math.min(h[gi], sea + 0.002 + (h[gi] - sea) * smooth(0, 6, -d));
+      if (d > 0) h[gi] = Math.min(h[gi], sea - 0.006 * Math.min(1, d) - 0.2 * smooth(0, R, d));
+      else if (-d < 6 && h[gi] >= sea) h[gi] = Math.min(h[gi], sea + 0.002 * Math.min(1, -d) + (h[gi] - sea) * smooth(0, 6, -d));
     }
   }
   settleSketch(bx0, by0, bx1, by1);

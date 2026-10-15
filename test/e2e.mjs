@@ -423,6 +423,24 @@ await M(() => window.terra.select({ type: 'loc', x: 250.5, y: 160.5 }));
 const namedWater = await map.textContent('#pane-inspect h2');
 ok(unnamedWater === 'Open sea' && namedWater === 'The Inner Sea', `and its water goes by its own name, or none ("${unnamedWater}", then "${namedWater}")`);
 
+// That island was drawn with a smooth coast: its straight east side, from (340, 70) to (360, 150), comes out straight
+// rather than as a staircase of cells. Where the ground crosses sea level along each row, against a straight line.
+const fit = await M(() => {
+  const xs = [], ys = [];
+  for (let y = 78; y <= 142; y++) {
+    const along = 340 + (y + 0.5 - 70) / 4;
+    for (let x = Math.floor(along) - 4; x < Math.floor(along) + 4; x++) {
+      const a = window.terra.cell(x + 0.5, y + 0.5).h, b = window.terra.cell(x + 1.5, y + 0.5).h;
+      if (a >= 0 && b < 0) { xs.push(x + 0.5 + a / (a - b)); ys.push(y + 0.5); break; }
+    }
+  }
+  const n = xs.length, mx = xs.reduce((s, v) => s + v, 0) / n, my = ys.reduce((s, v) => s + v, 0) / n;
+  let sxy = 0, syy = 0; for (let k = 0; k < n; k++) { sxy += (ys[k] - my) * (xs[k] - mx); syy += (ys[k] - my) ** 2; }
+  let rss = 0; for (let k = 0; k < n; k++) rss += (xs[k] - mx - sxy / syy * (ys[k] - my)) ** 2;
+  return { n, rms: Math.sqrt(rss / n) };
+});
+ok(fit.n > 50 && fit.rms < 0.1, `a straight coast drawn smooth comes out straight (${fit.rms.toFixed(3)} cells off a straight line, over ${fit.n} rows)`);
+
 await map.context().close();
 
 // A phone held sideways fits the whole map on screen, zoom buttons included.
