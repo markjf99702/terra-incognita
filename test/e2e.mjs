@@ -4,8 +4,10 @@
 // a town's page rolls a rumor into its notes, and Undo leaves notes alone; the world, rivers and borders included,
 // survives a reload and saves to a file. Then the usual checks: no errors, nothing loaded from elsewhere, no
 // sideways scrolling, installable, and it loads offline. On a laptop-sized screen: the Codex, sea names, world
-// files that are damaged, keyboard focus and shortcuts, and the dark theme Claude's viewer can stamp. Last, a
-// phone held sideways and a browser that won't keep the autosave.
+// files that are damaged, keyboard focus and shortcuts, and the dark theme Claude's viewer can stamp. Then what the
+// map says about itself: a lake's elevation, a river drawn out of a lake that leaves the lake be, a coast named after
+// the sea it is on, a coast drawn smooth that comes out smooth, and sea names clear of the scale bar; and the README's
+// count of the kinds of land. Last, a phone held sideways and a browser that won't keep the autosave.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
