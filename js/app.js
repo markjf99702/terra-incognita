@@ -672,7 +672,7 @@ function worldTitle(shape, rng, tg) {
   }
 }
 function newWorld(seed, shape, opts = {}) {
-  if (world && !opts.noUndo) pushUndo({ h: true, m: true, meta: true });
+  if (world && !opts.noUndo) pushUndo({ h: true, m: true, meta: true, world: true });
   const t = generateTerrain(seed, shape);
   if (!world) world = { h: t.h, m: t.m }; else { world.h.set(t.h); world.m.set(t.m); }
   Object.assign(world, { seed, shape, sea: 0.5, places: [], labels: [], springs: [], nextId: 1 });
@@ -686,8 +686,10 @@ function newWorld(seed, shape, opts = {}) {
 
 // ------------------------------------------------------------------ undo
 const undoStack = [], redoStack = [];
+// A snapshot marked world was taken just before the whole world was replaced (a new world, or a file opened).
 function takeSnap(parts) {
   const s = {};
+  if (parts.world) s.world = true;
   if (parts.h) s.h = world.h.slice();
   if (parts.m) s.m = world.m.slice();
   if (parts.meta) s.meta = JSON.stringify({ name: world.name, seed: world.seed, shape: world.shape, sea: world.sea, places: world.places, labels: world.labels, springs: world.springs || [], nextId: world.nextId });
@@ -695,10 +697,16 @@ function takeSnap(parts) {
 }
 function pushUndo(parts) { undoStack.push(takeSnap(parts)); if (undoStack.length > 30) undoStack.shift(); redoStack.length = 0; updateUndoButtons(); }
 function applySnap(s) {
-  const inv = takeSnap({ h: !!s.h, m: !!s.m, meta: !!s.meta });
+  const inv = takeSnap({ h: !!s.h, m: !!s.m, meta: !!s.meta, world: !!s.world });
   if (s.h) world.h.set(s.h);
   if (s.m) world.m.set(s.m);
-  if (s.meta) { const o = JSON.parse(s.meta); if (!o.springs) o.springs = []; const seedChanged = o.seed !== world.seed; Object.assign(world, o); if (seedChanged) computeTN(); }
+  if (s.meta) {
+    const o = JSON.parse(s.meta); if (!o.springs) o.springs = [];
+    // Notes aren't part of undo, so a place that is still there keeps what was written in it since. Not across a new
+    // world, though: its places reuse the old world's ids.
+    if (!s.world) { const notes = new Map(world.places.map(p => [p.id, p.lore])); for (const p of o.places) if (notes.has(p.id)) p.lore = notes.get(p.id); }
+    const seedChanged = o.seed !== world.seed; Object.assign(world, o); if (seedChanged) computeTN();
+  }
   return inv;
 }
 function undo() { const s = undoStack.pop(); if (!s) return; redoStack.push(applySnap(s)); afterRestore(); }
@@ -1764,8 +1772,10 @@ async function writeHistory(p) {
   renderDraft();
 }
 function bindPlace(p) {
+  // Edits on this page are one undo step, so Undo steps back through them before anything older. Notes stay out of undo.
+  let pushed = false; const once = () => { if (!pushed) { pushUndo({ meta: true }); pushed = true; } };
   const nm = $('#pName');
-  nm.addEventListener('input', () => { p.name = nm.value; requestDraw(); markDirty(); });
+  nm.addEventListener('input', () => { once(); p.name = nm.value; requestDraw(); markDirty(); });
   nm.addEventListener('change', () => { if (!p.name.trim()) { p.name = 'Nameless'; nm.value = p.name; } refreshCodex(); requestDraw(); });
   $('#pReroll').onclick = () => { pushUndo({ meta: true }); p.name = p.kind === 'landmark' ? landmarkName(p.sub, p.tongue, Math.random) : makeName(p.tongue, Math.random); nm.value = p.name; $('#pDelete').textContent = `Remove ${p.name}`; requestDraw(); refreshCodex(); markDirty(); };
   $('#pKind').onchange = e => changeKind(p, e.target.value);
@@ -1777,11 +1787,11 @@ function bindPlace(p) {
   $('#dDiscard').onclick = () => { Object.assign(draft, { text: '', kind: '', note: '' }); renderDraft(); };
   if (p.kind === 'capital' && p.realm) {
     const rn = $('#rName');
-    rn.addEventListener('input', () => { p.realm.name = rn.value; requestDraw(); markDirty(); });
+    rn.addEventListener('input', () => { once(); p.realm.name = rn.value; requestDraw(); markDirty(); });
     rn.addEventListener('change', () => { if (!p.realm.name.trim()) { p.realm.name = 'Nameless'; rn.value = 'Nameless'; } renderInspector(); refreshCodex(); });
-    $('#rTitle').onchange = e => { p.realm.title = e.target.value; requestDraw(); markDirty(); renderInspector(); refreshCodex(); };
-    $('#rTongue').onchange = e => { p.tongue = e.target.value; markDirty(); };
-    document.querySelectorAll('[data-color]').forEach(b => b.onclick = () => { p.realm.color = b.dataset.color; renderTint(); requestDraw(); markDirty(); renderInspector(); refreshCodex(); });
+    $('#rTitle').onchange = e => { once(); p.realm.title = e.target.value; requestDraw(); markDirty(); renderInspector(); refreshCodex(); };
+    $('#rTongue').onchange = e => { once(); p.tongue = e.target.value; markDirty(); };
+    document.querySelectorAll('[data-color]').forEach(b => b.onclick = () => { once(); p.realm.color = b.dataset.color; renderTint(); requestDraw(); markDirty(); renderInspector(); refreshCodex(); });
   }
   renderDraft();
 }
@@ -1807,7 +1817,7 @@ function labelHTML(l) {
 }
 function bindLabel(l) {
   let pushed = false; const once = () => { if (!pushed) { pushUndo({ meta: true }); pushed = true; } };
-  $('#lText').addEventListener('input', e => { l.text = e.target.value; requestDraw(); markDirty(); });
+  $('#lText').addEventListener('input', e => { once(); l.text = e.target.value; requestDraw(); markDirty(); });
   $('#lKind').onchange = e => { once(); l.kind = e.target.value; requestDraw(); markDirty(); };
   $('#lSize').addEventListener('input', e => { once(); l.size = +e.target.value; requestDraw(); markDirty(); });
   $('#lAngle').addEventListener('input', e => { once(); l.angle = +e.target.value; requestDraw(); markDirty(); });
@@ -1914,7 +1924,7 @@ function bindWorldTab() {
     const rd = new FileReader();
     rd.onload = () => {
       let obj; try { obj = JSON.parse(rd.result); } catch (err) { toast('That file is not a Terra Incognita world.'); return; }
-      pushUndo({ h: true, m: true, meta: true });
+      pushUndo({ h: true, m: true, meta: true, world: true });
       try { loadObj(obj); } catch (err) { undo(); redoStack.length = 0; updateUndoButtons(); toast('That file is not a Terra Incognita world.'); return; }
       ui.selected = null; recomputeAll(); fitView(); syncWorldTab(); markDirty(); toast(`Opened ${world.name}.`, { label: 'Undo', fn: undo });
     };
@@ -1975,7 +1985,9 @@ function init() {
   if (!loadLocal()) { firstRun = true; newWorld(DEFAULT_SEED, 'continent', { noUndo: true }); }
   else recomputeAll();
   buildToolbar(); renderToolOpts(); bindWorldTab(); syncWorldTab(); updateUndoButtons(); updateCursor();
-  $('#worldName').addEventListener('input', e => { world.name = e.target.value; markDirty(); if (!ui.selected) renderInspector(); });
+  let renaming = false; // one undo step per visit to the field
+  $('#worldName').addEventListener('focus', () => { renaming = false; });
+  $('#worldName').addEventListener('input', e => { if (!renaming) { pushUndo({ meta: true }); renaming = true; } world.name = e.target.value; markDirty(); if (!ui.selected) renderInspector(); });
   $('#btnUndo').onclick = undo; $('#btnRedo').onclick = redo;
   $('#btnNew').onclick = () => $('#newMenu').hidden ? openNewMenu() : closeNewMenu();
   $('#mnRandom').onclick = () => { closeNewMenu(); const s = 1 + Math.floor(Math.random() * 999998); newWorld(s, world.shape && world.shape !== 'blank' ? world.shape : 'continent'); syncWorldTab(); markDirty(); toast(`Generated world ${s}.`, { label: 'Undo', fn: undo }); };

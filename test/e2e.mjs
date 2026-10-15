@@ -141,6 +141,17 @@ await page.click('#dKeep');
 ok((await page.inputValue('#pLore')).includes(rumor), 'keeping the rumor adds it to the notes');
 ok(await page.locator('#pWrite').isHidden(), 'the Claude history button stays hidden outside Claude');
 
+// Undo steps back through edits on the page, but never takes notes away.
+const undoBefore = (await state()).undo;
+await page.fill('#pName', 'Saltgate');
+ok((await state()).undo === undoBefore + 1, 'typing a new name is one undo step');
+await page.locator('#pLore').press('Control+End');
+await page.keyboard.type(' The mayor is a retired smuggler.');
+await page.click('#btnUndo');
+await page.waitForTimeout(300);
+ok((await page.inputValue('#pName')) === town.name, 'Undo puts the old name back');
+ok((await page.inputValue('#pLore')).endsWith('The mayor is a retired smuggler.'), 'Undo leaves the notes alone');
+
 // It survives a reload, and the map that comes back is the same one: rivers, lakes and borders included.
 const before = await state(), beforeRealms = await realmRows();
 await page.waitForTimeout(1200); // autosave
