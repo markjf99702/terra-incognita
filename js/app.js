@@ -662,7 +662,9 @@ function autoLabels(rng) {
     const size = pass ? 5.5 : 7, half = Math.ceil(text.length * size * 0.36) + 6;
     let best = -1, bd = pass ? 11 : 8;
     for (let y = 26; y < H - 24; y++) for (let x = half; x < W - half; x++) {
-      if (x > W - 70 && y < 44) continue;
+      // Keep clear of the compass in the top-right corner, and of the scale bar in the bottom-left, which on a laptop
+      // reaches about 180 cells along and 33 up (it is sized in pixels, so it covers less of a bigger map).
+      if ((x > W - 70 && y < 44) || (x - half < 182 && y + size * 0.6 > H - 33)) continue;
       const i = y * W + x; if (dist[i] > bd && (!first || Math.hypot(x - first.x, y - first.y) > 150)) { bd = dist[i]; best = i; }
     }
     if (best < 0) continue;
@@ -2183,6 +2185,17 @@ window.terra = {
   mapImage: (S = 2, allNames = true) => renderMapImage(S, allNames).toDataURL('image/png'),
   // What lies at a map cell: its height against sea level (below zero in the sea), and whether it holds a lake or a river.
   cell: (x, y) => { const i = cellAt(x, y); return { h: world.h[i] - world.sea, lake: !!D.lake[i], river: !!D.isR[i] }; },
+  // Where the scale bar's box and the sea names sit on the screen, as drawn: [left, top, right, bottom] in CSS pixels.
+  boxes: () => {
+    const s = view.s, sb = scaleBar(view.ox, view.oy, H * s, W * s, s, view.ch), seas = [];
+    for (const l of world.labels) {
+      const fs = l.size * s; if (l.kind !== 'sea' || fs < 6) continue;
+      const st = labelStyle(l, ui.style === 'atlas'); ctx.save(); ctx.font = `${st.font} ${fs}px ${st.face}`; ctx.letterSpacing = `${(fs * st.sp).toFixed(1)}px`;
+      const w = ctx.measureText(l.text).width; ctx.restore();
+      const X = view.ox + l.x * s, Y = view.oy + l.y * s; seas.push([X - w / 2, Y - fs * 0.6, X + w / 2, Y + fs * 0.6]);
+    }
+    return { scale: [sb.X - 6, sb.top, sb.right, sb.bottom], seas };
+  },
   riverNear: (x, y, r = 1.5) => {
     for (let dy = -Math.ceil(r); dy <= Math.ceil(r); dy++) for (let dx = -Math.ceil(r); dx <= Math.ceil(r); dx++) {
       if (dx * dx + dy * dy > r * r) continue; const i = cellAt(x + dx, y + dy); if (D.isR[i]) return true;

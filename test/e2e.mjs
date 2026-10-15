@@ -441,6 +441,16 @@ const fit = await M(() => {
 });
 ok(fit.n > 50 && fit.rms < 0.1, `a straight coast drawn smooth comes out straight (${fit.rms.toFixed(3)} cells off a straight line, over ${fit.n} rows)`);
 
+// Sea names stay clear of the scale bar in the bottom-left corner. These worlds had one underneath it.
+const covered = [];
+for (const [seed, shape] of [[645278, 'inland'], [793904, 'twin'], [543439, 'twin']]) {
+  if (await M(([seed, shape]) => {
+    window.terra.newWorld(seed, shape);
+    const { scale: s, seas } = window.terra.boxes();
+    return seas.some((a) => a[0] < s[2] && a[2] > s[0] && a[1] < s[3] && a[3] > s[1]);
+  }, [seed, shape])) covered.push(seed);
+}
+ok(covered.length === 0, 'sea names stay clear of the scale bar' + (covered.length ? ': not in ' + covered.join(', ') : ''));
 await map.context().close();
 
 // A phone held sideways fits the whole map on screen, zoom buttons included.
