@@ -141,13 +141,15 @@ await page.click('#dKeep');
 ok((await page.inputValue('#pLore')).includes(rumor), 'keeping the rumor adds it to the notes');
 ok(await page.locator('#pWrite').isHidden(), 'the Claude history button stays hidden outside Claude');
 
-// It survives a reload.
-const before = await state();
+// It survives a reload, and the map that comes back is the same one: rivers, lakes and borders included.
+const before = await state(), beforeRealms = await realmRows();
 await page.waitForTimeout(1200); // autosave
 await page.reload();
 await page.waitForTimeout(400);
 st = await state();
-ok(st.name === before.name && st.places === before.places && Math.abs(st.land - before.land) < 50, 'the world is still there after a reload');
+ok(st.name === before.name && st.places === before.places && st.land === before.land, 'the world is still there after a reload');
+ok(st.rivers === before.rivers && st.lakes === before.lakes, `its rivers and lakes are where they were (${before.rivers} river cells before, ${st.rivers} after)`);
+ok(JSON.stringify(await realmRows()) === JSON.stringify(beforeRealms), 'its borders are where they were');
 
 // Save world file downloads it.
 await page.click('#tab-world');

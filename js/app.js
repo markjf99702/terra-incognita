@@ -545,7 +545,7 @@ function renderBase(x0 = 0, y0 = 0, x1 = W - 1, y1 = H - 1) {
   L_LAND.x.putImageData(L_LAND.img, 0, 0, x0, y0, x1 - x0 + 1, y1 - y0 + 1);
 }
 
-function recomputeTerrain() { hydrology(); computeClimate(); buildRivers(); buildCoast(); buildContours(); buildGlyphs(); renderBase(); }
+function recomputeTerrain() { snapToSave(world.h); snapToSave(world.m); hydrology(); computeClimate(); buildRivers(); buildCoast(); buildContours(); buildGlyphs(); renderBase(); }
 function recomputePolitics() { territories(); buildBorders(); renderTint(); }
 function recomputeAll() { recomputeTerrain(); recomputePolitics(); requestDraw(); refreshPanels(); }
 
@@ -676,7 +676,7 @@ function newWorld(seed, shape, opts = {}) {
   const t = generateTerrain(seed, shape);
   if (!world) world = { h: t.h, m: t.m }; else { world.h.set(t.h); world.m.set(t.m); }
   Object.assign(world, { seed, shape, sea: 0.5, places: [], labels: [], springs: [], nextId: 1 });
-  computeTN(); hydrology(); fillPits(); hydrology(); computeClimate(); buildRivers();
+  computeTN(); hydrology(); fillPits(); snapToSave(world.h); snapToSave(world.m); hydrology(); computeClimate(); buildRivers();
   populate(seed);
   const rng = mulberry32(seed + 404);
   world.name = worldTitle(shape, rng, D.realms.length ? D.realms[0].tongue : 'vale');
@@ -712,6 +712,9 @@ function updateUndoButtons() { $('#btnUndo').disabled = !undoStack.length; $('#b
 // ------------------------------------------------------------------ persistence
 function b64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
 function unb64(str) { const s = atob(str); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+// The save keeps heights and rainfall in steps of 1/65535. The terrain is rounded to those steps before rivers, lakes
+// and borders are worked out, so the map on screen is exactly the one a reload brings back.
+function snapToSave(a) { for (let i = 0; i < a.length; i++) a[i] = Math.round(clamp(a[i], 0, 1) * 65535) / 65535; }
 function packF(a) { const u = new Uint16Array(a.length); for (let i = 0; i < a.length; i++) u[i] = Math.round(clamp(a[i], 0, 1) * 65535); return b64(new Uint8Array(u.buffer)); }
 function unpackF(str) { const b = unb64(str); const u = new Uint16Array(b.buffer, 0, b.length >> 1); const f = new Float32Array(N); for (let i = 0; i < N; i++) f[i] = u[i] / 65535; return f; }
 function serialize() {
