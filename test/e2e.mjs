@@ -7,9 +7,9 @@
 // files that are damaged or from a newer version, keyboard focus and shortcuts, and the dark theme Claude's viewer
 // can stamp. Then what the map says about itself: a lake's elevation, rivers drawn out of lakes (one with a wide
 // valley) that leave the lakes be, a coast named after the sea it is on, a coast drawn smooth that comes out smooth,
-// and sea names clear of the scale bar and the latitudes down the left edge; and the README's count of the kinds of
-// land. Last, a phone held sideways, a browser that won't keep the autosave, and saved worlds the page can't read
-// or that a newer version wrote.
+// sea names clear of the scale bar and the latitudes down the left edge, and places the sea rises over; and the
+// README's count of the kinds of land. Last, a phone held sideways, a browser that won't keep the autosave, and saved
+// worlds the page can't read or that a newer version wrote.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -483,6 +483,33 @@ for (const [seed, shape] of [[645278, 'inland'], [793904, 'twin'], [543439, 'twi
 }
 ok(covered.length === 0, 'sea names stay clear of the scale bar' + (covered.length ? ': not in ' + covered.join(', ') : ''));
 ok(onLat.length === 0, 'and of the latitudes down the left edge' + (onLat.length ? ': not in ' + onLat.join(', ') : ''));
+
+// Raising the sea says how many places it covered, and its Undo brings them back up: in the starting world, three
+// steps of the slider cover 18 of its 54 places. A Sea sketch and a brush that leave a place in the water say so too.
+await M(() => window.terra.newWorld(20417, 'continent'));
+const inWater = () => M(() => window.terra.places().filter((p) => { const c = window.terra.cell(p.x, p.y); return c.h < 0 || c.lake; }).map((p) => p.name));
+await map.click('#tab-world');
+await M(() => { const r = document.getElementById('wSea'); r.value = String(+r.value + 0.006); r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')); });
+const risen = await inWater(), riseToast = await map.textContent('#toast span');
+await map.click('#toast button');
+ok(risen.length > 1 && riseToast === `The sea rose over ${risen.length} places.` && (await inWater()).length === 0, `raising the sea says how many places it covered, and Undo brings them back ("${riseToast}")`);
+await map.keyboard.press('p');
+await map.click('.chip[data-v="sea"]');
+const krar = []; for (let k = 0; k <= 12; k++) krar.push([401.5 + Math.cos(k * Math.PI / 6) * 6, 235.5 + Math.sin(k * Math.PI / 6) * 6]);
+await drag(krar, 4, map);
+const floodToast = await map.textContent('#toast span'), flooded = await inWater();
+await map.click('#toast button');
+await map.keyboard.press('l');
+await M(() => { for (const [id, v] of [['optSize', '6'], ['optStr', '10']]) { const r = document.getElementById(id); r.value = v; r.dispatchEvent(new Event('input')); } });
+await M(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+const brushAt = await map.locator('#map').boundingBox(), naeino = await M(() => window.terra.toScreen(124.5, 205.5));
+await map.mouse.move(brushAt.x + naeino.x, brushAt.y + naeino.y);
+await map.mouse.down();
+for (let k = 0; k < 8; k++) { await map.mouse.move(brushAt.x + naeino.x + (k % 2 ? 2 : -2), brushAt.y + naeino.y); await map.waitForTimeout(60); }
+await map.mouse.up();
+await map.waitForTimeout(300);
+const brushToast = await map.textContent('#toast span'), lowered = await inWater();
+ok(flooded.join() === 'Krar' && floodToast === 'Flooded. The sea rose over Krar.' && lowered.join() === 'Naeino' && brushToast === 'Naeino is under water now.', `so do a Sea sketch and a brush ("${floodToast}", "${brushToast}")`);
 await map.context().close();
 
 // The README counts the kinds of land the map can show.

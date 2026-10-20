@@ -592,6 +592,10 @@ function makePlace(kind, x, y, rng, o = {}) {
   if (kind === 'capital') p.realm = newRealm(tongue, rng);
   return p;
 }
+// The places on dry land, so a change to the land or the sea can say afterwards which of them it left in the water.
+function dryPlaces() { const s = new Set(); for (const p of world.places) { const i = cellAt(p.x, p.y); if (isLand(i) && !D.lake[i]) s.add(p.id); } return s; }
+function drowned(dry) { return world.places.filter(p => { if (!dry.has(p.id)) return false; const i = cellAt(p.x, p.y); return !isLand(i) || D.lake[i]; }); }
+const someWet = wet => wet.length === 1 ? wet[0].name : `${wet.length} places`;
 function siteScore(i) {
   const h = world.h, sea = world.sea; let s = FERT[D.biome[i]]; const x = i % W, y = (i / W) | 0; let river = 0, coast = false;
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const j = ny * W + nx; if (h[j] < sea) coast = true; else if (D.acc[j] > RIVER_T) river = Math.max(river, D.acc[j]); }
@@ -1204,7 +1208,7 @@ function updateCursor() {
 let stroke = null;
 function startStroke(sx, sy) {
   pushUndo(ui.tool === 'rain' || ui.tool === 'drought' ? { m: true } : { h: true });
-  stroke = { tool: ui.tool, x: sx, y: sy, lx: sx, ly: sy };
+  stroke = { tool: ui.tool, x: sx, y: sy, lx: sx, ly: sy, dry: dryPlaces() };
   requestAnimationFrame(strokeFrame);
 }
 function strokeFrame() {
@@ -1244,8 +1248,9 @@ function dab(tool, cx, cy, r, amt) {
   }
 }
 function endStroke() {
-  if (!stroke) return; stroke = null;
+  if (!stroke) return; const dry = stroke.dry; stroke = null;
   recomputeAll(); markDirty();
+  const wet = drowned(dry); if (wet.length) toast(`${someWet(wet)} ${wet.length === 1 ? 'is' : 'are'} under water now.`, { label: 'Undo', fn: undo });
 }
 
 // ------------------------------------------------------------------ sketch
@@ -1313,6 +1318,7 @@ function sketchLoop(pts, mode) {
     if (!floods) { toast('Nothing to flood there. Draw the loop over land.'); return; }
   }
   pushUndo({ h: true });
+  const dry = dryPlaces();
   // The ground crosses sea level at the drawn line itself, so the coast is as smooth as the line.
   for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) {
     const li = y * bw + x, gx = bx0 + x, gy = by0 + y, gi = gy * W + gx;
@@ -1328,7 +1334,8 @@ function sketchLoop(pts, mode) {
     }
   }
   settleSketch(bx0, by0, bx1, by1);
-  toast(mode === 'land' ? 'Land raised. Rivers and borders have been redrawn.' : 'Flooded. The coast has been redrawn.', { label: 'Undo', fn: undo });
+  const wet = mode === 'sea' ? drowned(dry) : [];
+  toast(mode === 'land' ? 'Land raised. Rivers and borders have been redrawn.' : wet.length ? `Flooded. The sea rose over ${someWet(wet)}.` : 'Flooded. The coast has been redrawn.', { label: 'Undo', fn: undo });
 }
 function sketchRange(raw) {
   const pts = [raw[0], raw[1]];
@@ -2080,13 +2087,17 @@ function bindWorldTab() {
   $('#wGen').onclick = () => { const s = clamp(parseInt($('#wSeed').value, 10) || 1, 1, 999999); newWorld(s, $('#wShape').value); syncWorldTab(); markDirty(); toast(`Generated world ${s}.`, { label: 'Undo', fn: undo }); };
   $('#wBlank').onclick = startBlank;
   $('#wDice').onclick = () => { $('#wSeed').value = 1 + Math.floor(Math.random() * 999998); };
-  let seaEditing = false;
+  let seaEditing = false, seaDry = null;
   $('#wSea').addEventListener('input', e => {
-    if (!seaEditing) { pushUndo({ meta: true }); seaEditing = true; }
+    if (!seaEditing) { pushUndo({ meta: true }); seaEditing = true; seaDry = dryPlaces(); }
     world.sea = +e.target.value; computeClimate(); renderBase(); buildCoast(); buildContours(); buildGlyphs(); requestDraw();
     $('#wSeaOut').textContent = `${Math.round(landShare() * 100)}% of the map is land`;
   });
-  $('#wSea').addEventListener('change', () => { seaEditing = false; recomputeAll(); markDirty(); });
+  $('#wSea').addEventListener('change', () => {
+    seaEditing = false; recomputeAll(); markDirty();
+    const wet = seaDry ? drowned(seaDry) : []; seaDry = null;
+    if (wet.length) toast(`The sea rose over ${someWet(wet)}.`, { label: 'Undo', fn: undo });
+  });
   $('#wPopulate').onclick = () => { if (!landShare()) { toast('New realms need dry land. Sketch some first.'); return; } pushUndo({ meta: true }); populate(1 + Math.floor(Math.random() * 999998)); ui.selected = null; recomputePolitics(); refreshPanels(); requestDraw(); markDirty(); toast('New realms founded.', { label: 'Undo', fn: undo }); };
   $('#wClear').onclick = () => { pushUndo({ meta: true }); world.places = []; world.labels = []; ui.selected = null; recomputePolitics(); refreshPanels(); requestDraw(); markDirty(); toast('Cleared every place and label.', { label: 'Undo', fn: undo }); };
   for (const k of ['realms', 'rivers', 'labels', 'names', 'grid']) $('#ly' + k[0].toUpperCase() + k.slice(1)).onchange = e => { ui.layers[k] = e.target.checked; requestDraw(); savePrefs(); };
