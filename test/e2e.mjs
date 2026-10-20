@@ -8,7 +8,7 @@
 // map says about itself: a lake's elevation, rivers drawn out of lakes (one with a wide valley) that leave the lakes
 // be, a coast named after the sea it is on, a coast drawn smooth that comes out smooth, and sea names clear of the
 // scale bar and the latitudes down the left edge; and the README's count of the kinds of land. Last, a phone held
-// sideways and a browser that won't keep the autosave.
+// sideways, a browser that won't keep the autosave, and a saved world the page can't read.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -499,6 +499,17 @@ const fullPage = watch(await full.newPage());
 await fullPage.goto(base);
 ok(await fullPage.evaluate(() => { const t = document.getElementById('toast'); return !t.hidden && t.textContent.includes('would not keep an autosave'); }), 'a browser that will not keep the world says so');
 await full.close();
+
+// A world kept in this browser that the page can't read is copied aside before anything is saved over it, and the
+// page says so. This one was cut short.
+const broken = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const cutShort = JSON.stringify(saved).slice(0, 5000);
+await broken.addInitScript((s) => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('terra-incognita/world/v1', s); } }, cutShort);
+const brokenPage = watch(await broken.newPage());
+await brokenPage.goto(base);
+const [keptToast, keptAside, nowSaved] = await brokenPage.evaluate(() => [document.getElementById('toast').textContent, localStorage.getItem('terra-incognita/world/unreadable'), JSON.parse(localStorage.getItem('terra-incognita/world/v1'))]);
+ok(keptAside === cutShort && nowSaved.version === 1 && keptToast.startsWith('Your saved world could not be read'), 'a saved world the page cannot read is kept aside, and it says so');
+await broken.close();
 
 const real = problems.filter((p) => !/ERR_INTERNET_DISCONNECTED|net::ERR_FAILED/.test(p));
 ok(real.length === 0, 'no errors and nothing loaded from elsewhere' + (real.length ? ':\n' + real.join('\n') : ''));

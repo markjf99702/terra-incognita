@@ -11,6 +11,7 @@ const MAX_ELEV = 5200, MAX_DEPTH = 5400;
 const RIVER_T = 70, LAKE_MIN = 0.003;
 const DEFAULT_SEED = 20417;
 const STORE_KEY = 'terra-incognita/world/v1', PREF_KEY = 'terra-incognita/prefs/v1';
+const UNREADABLE_KEY = 'terra-incognita/world/unreadable'; // an autosave this page couldn't read, kept as it was
 const F_DISPLAY = '"IM Fell English", Georgia, serif';
 const F_SC = '"IM Fell English SC", "IM Fell English", Georgia, serif';
 const F_MONO = '"IBM Plex Mono", ui-monospace, Menlo, monospace';
@@ -792,13 +793,23 @@ function saveNow() { clearTimeout(saveTimer); saveTimer = 0; saveLocal(); }
 function saveBeforeLeaving() { if (saveTimer) saveNow(); }
 let saveWarned = false; // the first time an autosave fails, say so over the map too, not only in the World tab
 function saveLocal() {
-  try { localStorage.setItem(STORE_KEY, serialize()); setSaveNote('Autosaved in this browser at ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.'); }
-  catch (e) {
+  try {
+    // A world kept in this browser that couldn't be read is copied aside before the first autosave goes over it.
+    if (unreadable !== null) { localStorage.setItem(UNREADABLE_KEY, unreadable); unreadable = null; }
+    localStorage.setItem(STORE_KEY, serialize()); setSaveNote('Autosaved in this browser at ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.');
+    return true;
+  } catch (e) {
     const msg = 'This browser would not keep an autosave. Use Save world file to keep your work.';
     setSaveNote(msg, true); if (!saveWarned) { saveWarned = true; toast(msg); }
+    return false;
   }
 }
-function loadLocal() { try { const s = localStorage.getItem(STORE_KEY); if (!s) return false; loadObj(JSON.parse(s)); return true; } catch (e) { return false; } }
+let unreadable = null; // the autosave as it was stored, when it couldn't be read
+function loadLocal() {
+  let s = null; try { s = localStorage.getItem(STORE_KEY); } catch (e) { return false; }
+  if (!s) return false;
+  try { loadObj(JSON.parse(s)); return true; } catch (e) { unreadable = s; return false; }
+}
 function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ style: ui.style, layers: ui.layers, brush: ui.brush, sketch: ui.sketch })); } catch (e) { } }
 function loadPrefs() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || 'null'); if (p) { if (p.style === 'atlas' || p.style === 'terrain') ui.style = p.style; Object.assign(ui.layers, p.layers || {}); Object.assign(ui.brush, p.brush || {}); Object.assign(ui.sketch, p.sketch || {}); } } catch (e) { } }
 function setSaveNote(t, warn) { const el = $('#wSaveNote'); el.textContent = t; el.classList.toggle('warn', !!warn); }
@@ -2107,11 +2118,11 @@ function startBlank() {
 
 // ------------------------------------------------------------------ toast
 let toastTimer = 0;
-function toast(msg, action) {
+function toast(msg, action, ms) {
   const el = $('#toast');
   el.innerHTML = `<span>${esc(msg)}</span>` + (action ? `<button type="button">${esc(action.label)}</button>` : '');
   if (action) el.querySelector('button').onclick = () => { el.hidden = true; action.fn(); };
-  el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, action ? 6000 : 3200);
+  el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, ms || (action ? 6000 : 3200));
 }
 
 // ------------------------------------------------------------------ keyboard
@@ -2183,7 +2194,10 @@ function init() {
     e.preventDefault(); items[(to + items.length) % items.length].focus();
   });
   $('#codexQ').addEventListener('input', renderCodex);
-  if (firstRun) saveLocal();
+  if (firstRun) {
+    const kept = unreadable !== null;
+    if (saveLocal() && kept) toast('Your saved world could not be read, so a new one is open. The old save is kept in this browser.', null, 9000);
+  }
   refreshPlate();
   new ResizeObserver(resize).observe($('#mapwrap'));
   resize();
