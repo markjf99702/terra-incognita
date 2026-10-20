@@ -438,6 +438,9 @@ const shoreTown = (await M(() => window.terra.places()))[0];
 const onlyOcean = await row('Setting');
 await M(() => window.terra.select({ type: 'loc', x: 250.5, y: 160.5 }));
 const unnamedWater = await map.textContent('#pane-inspect h2');
+// Out at sea the temperature is the climate's, as on land, not the water's: open sea can't be as cold as -8 °C.
+const [seaClimate, seaWater] = [await row('Climate'), await row('Water')];
+ok(seaClimate.endsWith('°C mean') && !seaWater, `the sea's temperature reads as its climate ("${seaClimate}")`);
 await map.keyboard.press('t');
 await map.fill('#optLabelText', 'The Inner Sea');
 await clickMap(240.5, 150.5);

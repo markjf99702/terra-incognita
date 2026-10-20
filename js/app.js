@@ -1747,7 +1747,8 @@ function factsHTML(f, p) {
   rows.push(['Position', `<span class="mono">${fmtPos(f.x, f.y)}</span>`]);
   if (f.water && !f.lake) rows.push(['Depth', `<span class="mono">${fmtInt(-f.E)} m</span>`]);
   else rows.push(['Elevation', `<span class="mono">${fmtInt(Math.max(0, f.E))} m</span>`]);
-  rows.push([f.water && !f.lake ? 'Water' : 'Climate', `<span class="mono">${Math.round(f.temp)} °C</span> mean` + (f.water && !f.lake ? '' : ` · <span class="mono">${fmtInt(f.precip)} mm</span> rain`)]);
+  // Out at sea too, this is the climate's mean air temperature, not the water's.
+  rows.push(['Climate', `<span class="mono">${Math.round(f.temp)} °C</span> mean` + (f.water && !f.lake ? '' : ` · <span class="mono">${fmtInt(f.precip)} mm</span> rain`)]);
   if (!f.water || f.lake) rows.push(['Land', esc(f.biome)]);
   if (!f.water) {
     const bits = [f.coastal ? `On the coast of ${esc(f.sea || 'the sea')}` : 'Inland']; if (f.river) bits.push(`on ${esc(f.river.on)}`);
