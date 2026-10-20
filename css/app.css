@@ -185,8 +185,7 @@ kbd{font:11px var(--f-mono);border:1px solid var(--line-strong);border-bottom-wi
   .top-actions{gap:6px}
   .btn .lbl{display:none}
   #btnUndo,#btnRedo{width:36px;padding:0;justify-content:center}
-  .zoom button{width:30px;height:28px;font-size:16px}
-  .toast{left:8px;right:46px;bottom:8px;transform:none;max-width:none;font-size:12.5px;padding:6px 6px 6px 11px}
+  .toast{left:8px;right:50px;bottom:8px;transform:none;max-width:none;font-size:12.5px;padding:6px 6px 6px 11px} /* clear of the zoom buttons */
   .seg button{padding:0 10px}
 }
 @media (prefers-reduced-motion: no-preference){

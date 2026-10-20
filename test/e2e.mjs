@@ -136,6 +136,12 @@ ok(tip.includes('Sketch') && !/on the (left|right)|above|below/.test(tip), `the 
 await page.click('#tab-world');
 await page.click('#wPopulate');
 ok((await page.textContent('#toast')).startsWith('New realms need dry land') && (await state()).undo === st.undo, 'Found new realms on open water says it needs land');
+// The zoom buttons are as big on a phone as on a laptop, 34 by 32, and that toast keeps clear of them.
+const [zoomSizes, toastClear] = await S(() => {
+  const z = document.querySelector('.zoom').getBoundingClientRect(), t = document.getElementById('toast');
+  return [[...document.querySelectorAll('.zoom button')].map((b) => [b.offsetWidth, b.offsetHeight]), !t.hidden && t.getBoundingClientRect().right < z.left];
+});
+ok(zoomSizes.every(([w, h]) => w >= 34 && h >= 32) && toastClear, `the zoom buttons are full size on a phone (${zoomSizes[0].join(' x ')}), and a toast keeps clear of them`);
 await page.click('.chip[data-v="sea"]');
 await drag([[300, 100], [360, 100], [360, 160], [300, 160], [300, 100]], 5);
 ok((await page.textContent('#toast')).startsWith('Nothing to flood') && (await state()).undo === st.undo, 'a sea loop on open water says there is nothing to flood');
