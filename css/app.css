@@ -172,9 +172,10 @@ kbd{font:11px var(--f-mono);border:1px solid var(--line-strong);border-bottom-wi
   .tools{flex-direction:row;flex-wrap:wrap;align-self:stretch}
   .tool-sep{width:1px;height:auto;margin:3px 4px}
   .stage{height:auto}
-  /* A tool's options sit under the map here, so switching tools never moves the map. */
+  /* A tool's options sit under the map here, so switching tools never moves the map. The map keeps the zoom
+     buttons' shadow to itself rather than letting it fall on them. */
   .toolopts{order:1;border-bottom:0;border-top:1px solid var(--line)}
-  .mapwrap{flex:none;aspect-ratio:480/336;min-height:250px;max-height:calc(100vh - 24px);max-height:calc(100svh - 24px)}
+  .mapwrap{flex:none;aspect-ratio:480/336;min-height:250px;max-height:calc(100vh - 24px);max-height:calc(100svh - 24px);overflow:hidden}
   .panel{min-height:460px}
   .top-actions{margin-left:0}
   .brand-name{font-size:21px}
