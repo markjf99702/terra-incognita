@@ -1073,12 +1073,18 @@ function drawCompass(c, X, Y, R, ink, halo) {
   haloText(c, 'N', 0, -R - 1, ink, halo, 3);
   c.restore();
 }
-// Where the scale bar goes in the map's bottom-left corner, how long it is, and the box painted behind it.
+// Where the scale bar goes in the map's bottom-left corner, how long it is, and the box painted behind it. The box
+// takes about 30% of the map's width at most, showing the first step when no step fits, though the bar is never so
+// short that its length, written centred on its end, sticks out of the box. The 0 at its start is left out when the
+// length would run into it. 10.5px IBM Plex Mono is 6.3px a letter.
+const SCALE_STEPS = [5, 10, 20, 25, 50, 100, 150, 200, 250, 300, 500, 1000];
 function scaleBar(X0, Y0, MH, MW, s, vh) {
-  const X = Math.max(16, X0 + 14), Y = Math.min(vh - 18, Y0 + MH - 16), ppl = s * LEAGUE / KM, maxLen = Math.min(150, MW * 0.3); let lg = 5;
-  for (const n of [5, 10, 20, 25, 50, 100, 150, 200, 250, 300, 500, 1000]) if (n * ppl <= maxLen) lg = n;
-  const len = lg * ppl;
-  return { X, Y, lg, len, top: Y - 22, bottom: Y + 8, right: X - 6 + len + 62 };
+  const X = Math.max(16, X0 + 14), Y = Math.min(vh - 18, Y0 + MH - 16), ppl = s * LEAGUE / KM, maxLen = Math.min(150, MW * 0.3 - 62);
+  const half = n => (String(n).length + 8) * 3.15; // half the width of "N leagues"
+  let k = 0; while (k + 1 < SCALE_STEPS.length && SCALE_STEPS[k + 1] * ppl <= maxLen) k++;
+  while (k + 1 < SCALE_STEPS.length && SCALE_STEPS[k] * ppl < half(SCALE_STEPS[k]) - 4) k++;
+  const lg = SCALE_STEPS[k], len = lg * ppl;
+  return { X, Y, lg, len, zero: len - half(lg) >= 7.3, top: Y - 22, bottom: Y + 8, right: X - 6 + len + 62 };
 }
 function drawScale(c, sb, ink, halo) {
   const { X, Y, lg, len } = sb, seg = len / 4;
@@ -1087,14 +1093,21 @@ function drawScale(c, sb, ink, halo) {
   for (let k = 0; k < 4; k++) { c.fillStyle = k % 2 ? halo : ink; c.fillRect(X + k * seg, Y - 3, seg, 5); }
   c.lineWidth = 1; c.strokeStyle = ink; c.strokeRect(X + 0.5, Y - 2.5, len, 5);
   c.font = `10.5px ${F_MONO}`; c.fillStyle = ink; c.textBaseline = 'bottom'; c.textAlign = 'left';
-  c.fillText('0', X - 2, Y - 6); c.textAlign = 'center'; c.fillText(`${lg} leagues`, X + len, Y - 6);
+  if (sb.zero) c.fillText('0', X - 2, Y - 6);
+  c.textAlign = 'center'; c.fillText(`${lg} leagues`, X + len, Y - 6);
   c.restore();
 }
 
 // ------------------------------------------------------------------ view
 const canvas = $('#map'), ctx = canvas.getContext('2d');
-function computeS0() { const m = view.cw < 500 ? 12 : 26; view.s0 = Math.max(0.2, Math.min((view.cw - m * 2) / W, (view.ch - m * 2) / H)); }
-function fitView() { computeS0(); view.s = view.s0; view.ox = (view.cw - W * view.s) / 2; view.oy = (view.ch - H * view.s) / 2; requestDraw(); }
+// The whole map fits inside these margins. On a narrow screen the right one leaves room for the zoom buttons, so they
+// don't cover the map's east edge.
+const fitMargins = () => view.cw < 500 ? { l: 12, r: 46, t: 12, b: 12 } : { l: 26, r: 26, t: 26, b: 26 };
+function computeS0() { const m = fitMargins(); view.s0 = Math.max(0.2, Math.min((view.cw - m.l - m.r) / W, (view.ch - m.t - m.b) / H)); }
+function fitView() {
+  computeS0(); const m = fitMargins(); view.s = view.s0;
+  view.ox = m.l + (view.cw - m.l - m.r - W * view.s) / 2; view.oy = m.t + (view.ch - m.t - m.b - H * view.s) / 2; requestDraw();
+}
 function clampView() {
   const mw = W * view.s, mh = H * view.s, pad = 80;
   view.ox = mw <= view.cw ? clamp(view.ox, 0, view.cw - mw) : clamp(view.ox, view.cw - mw - pad, pad);

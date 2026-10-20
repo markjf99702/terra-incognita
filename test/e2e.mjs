@@ -1,16 +1,16 @@
 // Draws a world in Chromium through the real page:  node test/e2e.mjs  (needs Playwright)
-// On a phone-sized screen: the starting world has realms, towns and rivers, and switching tools leaves the map
-// where it is; a blank ocean takes a sketched island, a mountain range (without flooding the valleys beside it) and
-// a hand-drawn river; new realms fill the island; a town's page rolls a rumor into its notes, and Undo leaves notes
-// alone; the world, rivers and borders included, survives a reload and saves to a file. Then the usual checks: no
-// errors, nothing loaded from elsewhere, no sideways scrolling, installable, and it loads offline. On a
-// laptop-sized screen: the Codex, sea names, world files that are damaged or from a newer version, keyboard focus
-// and shortcuts, and the dark theme Claude's viewer can stamp. Then what the map says about itself: a lake's
-// elevation, rivers drawn out of lakes (one with a wide valley) that leave the lakes be, a coast named after the
-// sea it is on, a coast drawn smooth that comes out smooth, sea names clear of the scale bar and the latitudes down
-// the left edge, and places the sea rises over; and the README's count of the kinds of land. Last, a phone held
-// sideways, a browser that won't keep the autosave, and saved worlds the page can't read or that a newer version
-// wrote.
+// On a phone-sized screen: the starting world has realms, towns and rivers, switching tools leaves the map where it
+// is, and the whole map fits beside the zoom buttons with a small scale bar; a blank ocean takes a sketched island,
+// a mountain range (without flooding the valleys beside it) and a hand-drawn river; new realms fill the island; a
+// town's page rolls a rumor into its notes, and Undo leaves notes alone; the world, rivers and borders included,
+// survives a reload and saves to a file. Then the usual checks: no errors, nothing loaded from elsewhere, no
+// sideways scrolling, installable, and it loads offline. On a laptop-sized screen: the Codex, sea names, world
+// files that are damaged or from a newer version, keyboard focus and shortcuts, and the dark theme Claude's viewer
+// can stamp. Then what the map says about itself: a lake's elevation, rivers drawn out of lakes (one with a wide
+// valley) that leave the lakes be, a coast named after the sea it is on, a coast drawn smooth that comes out
+// smooth, sea names clear of the scale bar and the latitudes down the left edge, and places the sea rises over; and
+// the README's count of the kinds of land. Last, a phone held sideways, a browser that won't keep the autosave, and
+// saved worlds the page can't read or that a newer version wrote.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -89,6 +89,16 @@ await page.click('.tool[data-tool="sketch"]');
 for (const m of ['sea', 'range', 'river', 'land']) { await page.click(`.chip[data-v="${m}"]`); tops.add(await mapTop()); }
 await page.click('.tool[data-tool="select"]');
 ok(tops.size === 1, `switching tools leaves the map where it is on a phone (${[...tops].join(', ')} px down the page)`);
+
+// The whole map on a phone: the scale bar keeps to its corner, and the zoom buttons stay off the map's east edge. They
+// used to cover the starting world's eastern capital, and the scale bar took half the map's width.
+const fitted = await S(() => {
+  window.terra.fitView();
+  const { scale } = window.terra.boxes(), a = window.terra.toScreen(0, 0), b = window.terra.toScreen(480, 300);
+  const wrap = document.getElementById('mapwrap').getBoundingClientRect(), zoom = document.querySelector('.zoom').getBoundingClientRect();
+  return { share: (scale[2] - scale[0]) / (b.x - a.x), mapRight: wrap.left + b.x, zoomLeft: zoom.left };
+});
+ok(fitted.share < 0.4 && fitted.mapRight <= fitted.zoomLeft + 0.5, `on a phone the scale bar takes ${Math.round(fitted.share * 100)}% of the map's width, and the zoom buttons stay off the map`);
 
 // Borders come from the land, the capitals and their towns, so a reload brings back the same realms.
 const realmRows = () => S(() => {
