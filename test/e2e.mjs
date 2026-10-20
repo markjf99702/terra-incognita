@@ -4,11 +4,12 @@
 // a town's page rolls a rumor into its notes, and Undo leaves notes alone; the world, rivers and borders included,
 // survives a reload and saves to a file. Then the usual checks: no errors, nothing loaded from elsewhere, no
 // sideways scrolling, installable, and it loads offline. On a laptop-sized screen: the Codex, sea names, world
-// files that are damaged, keyboard focus and shortcuts, and the dark theme Claude's viewer can stamp. Then what the
-// map says about itself: a lake's elevation, rivers drawn out of lakes (one with a wide valley) that leave the lakes
-// be, a coast named after the sea it is on, a coast drawn smooth that comes out smooth, and sea names clear of the
-// scale bar and the latitudes down the left edge; and the README's count of the kinds of land. Last, a phone held
-// sideways, a browser that won't keep the autosave, and a saved world the page can't read.
+// files that are damaged or from a newer version, keyboard focus and shortcuts, and the dark theme Claude's viewer
+// can stamp. Then what the map says about itself: a lake's elevation, rivers drawn out of lakes (one with a wide
+// valley) that leave the lakes be, a coast named after the sea it is on, a coast drawn smooth that comes out smooth,
+// and sea names clear of the scale bar and the latitudes down the left edge; and the README's count of the kinds of
+// land. Last, a phone held sideways, a browser that won't keep the autosave, and saved worlds the page can't read
+// or that a newer version wrote.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -297,6 +298,9 @@ delete damaged.places.find((p) => p.kind === 'capital').realm.color;
 delete damaged.places.find((p) => p.kind !== 'capital').x;
 const [damagedToast, damagedState] = await openFile(damaged);
 ok(damagedToast.startsWith('Opened') && damagedState.places === saved.places.length - 1, 'a world file with a realm missing its color opens');
+// One from a newer version of the page isn't opened: saving it again here would lose whatever is new in it.
+const [newerToast, newerState] = await openFile({ ...saved, version: 2, name: 'A future world' });
+ok(newerToast.startsWith('That world file needs a newer') && newerState.name === damagedState.name, 'a world file from a newer version is not opened');
 
 // Keyboard focus on a zoom button is drawn inside it, where the button group can't clip it away.
 await desk.evaluate(() => document.activeElement.blur());
@@ -502,14 +506,20 @@ await full.close();
 
 // A world kept in this browser that the page can't read is copied aside before anything is saved over it, and the
 // page says so. This one was cut short.
-const broken = await browser.newContext({ viewport: { width: 390, height: 844 } });
-const cutShort = JSON.stringify(saved).slice(0, 5000);
-await broken.addInitScript((s) => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('terra-incognita/world/v1', s); } }, cutShort);
-const brokenPage = watch(await broken.newPage());
-await brokenPage.goto(base);
-const [keptToast, keptAside, nowSaved] = await brokenPage.evaluate(() => [document.getElementById('toast').textContent, localStorage.getItem('terra-incognita/world/unreadable'), JSON.parse(localStorage.getItem('terra-incognita/world/v1'))]);
-ok(keptAside === cutShort && nowSaved.version === 1 && keptToast.startsWith('Your saved world could not be read'), 'a saved world the page cannot read is kept aside, and it says so');
-await broken.close();
+const openStored = async (stored) => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addInitScript((s) => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('terra-incognita/world/v1', s); } }, stored);
+  const pg = watch(await ctx.newPage());
+  await pg.goto(base);
+  const got = await pg.evaluate(() => ({ toast: document.getElementById('toast').textContent, kept: localStorage.getItem('terra-incognita/world/unreadable'), now: JSON.parse(localStorage.getItem('terra-incognita/world/v1')), name: window.terra.state().name }));
+  await ctx.close();
+  return got;
+};
+const cutShort = JSON.stringify(saved).slice(0, 5000), cutOpen = await openStored(cutShort);
+ok(cutOpen.kept === cutShort && cutOpen.now.version === 1 && cutOpen.toast.startsWith('Your saved world could not be read'), 'a saved world the page cannot read is kept aside, and it says so');
+// So is one saved by a newer version, rather than opened half-read and then saved back over as this version.
+const future = JSON.stringify({ ...saved, version: 2, name: 'A future world' }), futureOpen = await openStored(future);
+ok(futureOpen.kept === future && futureOpen.name !== 'A future world' && futureOpen.now.version === 1, 'and so is one saved by a newer version');
 
 const real = problems.filter((p) => !/ERR_INTERNET_DISCONNECTED|net::ERR_FAILED/.test(p));
 ok(real.length === 0, 'no errors and nothing loaded from elsewhere' + (real.length ? ':\n' + real.join('\n') : ''));
