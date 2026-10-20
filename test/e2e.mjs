@@ -5,10 +5,10 @@
 // survives a reload and saves to a file. Then the usual checks: no errors, nothing loaded from elsewhere, no
 // sideways scrolling, installable, and it loads offline. On a laptop-sized screen: the Codex, sea names, world
 // files that are damaged, keyboard focus and shortcuts, and the dark theme Claude's viewer can stamp. Then what the
-// map says about itself: a lake's elevation, a river drawn out of a lake that leaves the lake be, a coast named after
-// the sea it is on, a coast drawn smooth that comes out smooth, and sea names clear of the scale bar and the latitudes
-// down the left edge; and the README's count of the kinds of land. Last, a phone held sideways and a browser that
-// won't keep the autosave.
+// map says about itself: a lake's elevation, rivers drawn out of lakes (one with a wide valley) that leave the lakes
+// be, a coast named after the sea it is on, a coast drawn smooth that comes out smooth, and sea names clear of the
+// scale bar and the latitudes down the left edge; and the README's count of the kinds of land. Last, a phone held
+// sideways and a browser that won't keep the autosave.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -400,6 +400,16 @@ const lakeAfter = await lakeCells();
 const alongOut = []; for (let x = 413; x <= 430; x++) alongOut.push(await M((x) => window.terra.riverNear(x, 159.5), x));
 ok(lakeAfter >= lakeBefore * 0.95, `a river drawn out of a lake leaves the lake (${lakeBefore} lake cells before, ${lakeAfter} after)`);
 ok(alongOut.filter(Boolean).length >= alongOut.length * 0.9, `and runs where it was drawn (${alongOut.filter(Boolean).length} of ${alongOut.length} points)`);
+
+// So does one with a wide valley out of world 950281's big, ragged lake. The valley's banks leave hollows beside the
+// lake, and the gorges that drain them used to cut through its shore: it kept 298 of its 851 cells.
+await M(() => window.terra.newWorld(950281, 'inland'));
+const bigLake = () => M(() => { let n = 0; for (let y = 108; y <= 151; y++) for (let x = 348; x <= 385; x++) if (window.terra.cell(x + 0.5, y + 0.5).lake) n++; return n; });
+const bigBefore = await bigLake();
+await M(() => { const r = document.getElementById('optValley'); r.value = '12'; r.dispatchEvent(new Event('input')); });
+await drag([[365.5, 136.5], [337.9, 120]], 30, map);
+const bigAfter = await bigLake();
+ok(bigBefore > 800 && bigAfter >= bigBefore * 0.95, `a wide valley drawn out of a big lake leaves the lake too (${bigBefore} lake cells before, ${bigAfter} after)`);
 
 // A lake reads one height from end to end. World 857490's lake read 1,036 m at one end and 1,037 m at the other.
 await M(() => window.terra.newWorld(857490, 'twin'));

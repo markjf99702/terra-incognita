@@ -1446,21 +1446,41 @@ function sketchRiver(raw) {
   settleSketch(bx0, by0, bx1, by1);
   toast(hAt(last) < sea ? 'River drawn. It gathers tributaries as rain drains into its valley.' : 'River drawn. It ends inland, so it finds its own way on from there.', { label: 'Undo', fn: undo });
 }
-// Cut a gorge from the bottom of a basin, along its overflow route, until the ground falls away on the far side.
-function breach(pit) {
-  const h = world.h, sea = world.sea, down = D.down;
+// Cut a gorge from the bottom of a basin, along its overflow route, until the ground falls away on the far side. A lake
+// that was there before the sketch keeps its water: the gorge stops where its route reaches one, as the lake's own
+// outlet carries the water on from there, and never takes the ground beside one below the water.
+function breach(pit, keep) {
+  const h = world.h, sea = world.sea, down = D.down, water = keep.water, shore = keep.shore;
   let run = h[pit], c = down[pit], guard = 0;
-  while (c >= 0 && h[c] >= sea && guard++ < 4000) {
+  while (c >= 0 && h[c] >= sea && !water[c] && guard++ < 4000) {
     run -= 1e-5;
     if (h[c] > run) {
-      const cut = Math.max(run, sea + 1e-4), cx = c % W, cy = (c / W) | 0;
+      const low = Math.max(run, sea + 1e-4), cut = Math.max(low, Math.min(h[c], shore[c])), cx = c % W, cy = (c / W) | 0;
       for (let k = 0; k < 8; k++) {
         const nx = cx + NBX[k], ny = cy + NBY[k]; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-        const n = ny * W + nx; if (h[n] > cut) h[n] = Math.min(h[n], cut + (h[n] - cut) * 0.55 + 0.0005);
+        const n = ny * W + nx; if (h[n] > cut && !water[n]) h[n] = Math.max(Math.min(h[n], cut + (h[n] - cut) * 0.55 + 0.0005), Math.min(h[n], shore[n]));
       }
-      h[c] = cut;
+      h[c] = cut; if (cut > low) run = cut; // held up beside a lake, the gorge goes on from the water's level
     } else run = h[c];
     c = down[c];
+  }
+}
+// The lakes that were there before a sketch, as they stand now: their water, and beside it the level of that water.
+function oldWater(oldLake, keep) {
+  const h = world.h, sea = world.sea, water = keep.water, shore = keep.shore, q = D.q;
+  const wet = i => h[i] >= sea && D.filled[i] - h[i] > 1e-4;
+  water.fill(0); shore.fill(0);
+  for (let i = 0; i < N; i++) {
+    if (!oldLake[i] || water[i] || !wet(i)) continue;
+    let qh = 0, qt = 0, level = 0; q[qt++] = i; water[i] = 1;
+    while (qh < qt) {
+      const c = q[qh++], cx = c % W, cy = (c / W) | 0; if (D.filled[c] > level) level = D.filled[c];
+      for (let k = 0; k < 8; k++) { const nx = cx + NBX[k], ny = cy + NBY[k]; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const n = ny * W + nx; if (!water[n] && wet(n)) { water[n] = 1; q[qt++] = n; } }
+    }
+    for (let k = 0; k < qt; k++) {
+      const c = q[k], cx = c % W, cy = (c / W) | 0;
+      for (let j = 0; j < 8; j++) { const nx = cx + NBX[j], ny = cy + NBY[j]; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const n = ny * W + nx; if (!water[n] && shore[n] < level) shore[n] = level; }
+    }
   }
 }
 // After a sketch, let the land drain: shallow basins it created are filled, deep ones get a gorge through
@@ -1469,8 +1489,9 @@ function settleSketch(x0, y0, x1, y1) {
   const h = world.h, sea = world.sea, prev = undoStack[undoStack.length - 1].h, oldLake = D.lake.slice();
   const X0 = Math.max(0, x0 - 24), X1 = Math.min(W - 1, x1 + 24), Y0 = Math.max(0, y0 - 24), Y1 = Math.min(H - 1, y1 + 24);
   const inBasin = i => h[i] >= sea && D.filled[i] - h[i] > 1e-4;
+  const keep = { water: new Uint8Array(N), shore: new Float32Array(N) };
   for (let pass = 0; pass < 4; pass++) {
-    hydrology();
+    hydrology(); oldWater(oldLake, keep);
     const seen = new Uint8Array(N), stack = []; let touched = 0;
     for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) {
       const s0 = y * W + x; if (seen[s0] || !inBasin(s0)) continue;
@@ -1485,7 +1506,7 @@ function settleSketch(x0, y0, x1, y1) {
       }
       if (old) continue;
       if (deep < 0.02) for (const c of comp) h[c] = D.filled[c];
-      else breach(pit);
+      else breach(pit, keep);
       touched++;
     }
     if (!touched) break;
