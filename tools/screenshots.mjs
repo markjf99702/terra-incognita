@@ -84,6 +84,8 @@ async function sketchIsland(page) {
   await sketchIsland(page);
   await page.click('#tab-inspect');
   await page.click('.chip[data-v="land"]');
+  // The options sit under the map on a phone, so picking one scrolls the top of the map away: bring it back.
+  await S(page, () => { document.querySelector('.stage').scrollIntoView({ block: 'start' }); window.scrollBy(0, -12); });
   await drag(page, [[400, 200], [446, 186], [462, 232], [440, 262], [404, 252]], { steps: 6, up: false });
   await page.waitForTimeout(100);
   await save(await page.screenshot(), 'docs/phone-sketch.png');
