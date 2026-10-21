@@ -11,7 +11,10 @@ const MAX_ELEV = 5200, MAX_DEPTH = 5400;
 const RIVER_T = 70, LAKE_MIN = 0.003;
 const DEFAULT_SEED = 20417;
 const STORE_KEY = 'terra-incognita/world/v1', PREF_KEY = 'terra-incognita/prefs/v1';
-const UNREADABLE_KEY = 'terra-incognita/world/unreadable'; // an autosave this page couldn't read, kept as it was
+// An autosave this page couldn't read, kept as it was; Download the old save in the World tab hands it back as a file.
+// A future save version must keep using this key, even when the world's own key moves on, or an old save kept here
+// would be left where nothing on the page can reach it.
+const UNREADABLE_KEY = 'terra-incognita/world/unreadable';
 const F_DISPLAY = '"IM Fell English", Georgia, serif';
 const F_SC = '"IM Fell English SC", "IM Fell English", Georgia, serif';
 const F_MONO = '"IBM Plex Mono", ui-monospace, Menlo, monospace';
@@ -801,7 +804,7 @@ let saveWarned = false; // the first time an autosave fails, say so over the map
 function saveLocal() {
   try {
     // A world kept in this browser that couldn't be read is copied aside before the first autosave goes over it.
-    if (unreadable !== null) { localStorage.setItem(UNREADABLE_KEY, unreadable); unreadable = null; }
+    if (unreadable !== null) { localStorage.setItem(UNREADABLE_KEY, unreadable); unreadable = null; syncOldSave(); }
     localStorage.setItem(STORE_KEY, serialize()); setSaveNote('Autosaved in this browser at ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.');
     return true;
   } catch (e) {
@@ -816,6 +819,9 @@ function loadLocal() {
   if (!s) return false;
   try { loadObj(JSON.parse(s)); return true; } catch (e) { unreadable = s; return false; }
 }
+// The save kept aside, as stored, or null when there isn't one. Download the old save shows only while there is.
+function keptAside() { try { return localStorage.getItem(UNREADABLE_KEY); } catch (e) { return null; } }
+function syncOldSave() { $('#wOldSave').hidden = keptAside() === null; }
 function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ style: ui.style, layers: ui.layers, brush: ui.brush, sketch: ui.sketch })); } catch (e) { } }
 function loadPrefs() { try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || 'null'); if (p) { if (p.style === 'atlas' || p.style === 'terrain') ui.style = p.style; Object.assign(ui.layers, p.layers || {}); Object.assign(ui.brush, p.brush || {}); Object.assign(ui.sketch, p.sketch || {}); } } catch (e) { } }
 function setSaveNote(t, warn) { const el = $('#wSaveNote'); el.textContent = t; el.classList.toggle('warn', !!warn); }
@@ -2116,6 +2122,8 @@ function bindWorldTab() {
   for (const k of ['realms', 'rivers', 'labels', 'names', 'grid']) $('#ly' + k[0].toUpperCase() + k.slice(1)).onchange = e => { ui.layers[k] = e.target.checked; requestDraw(); savePrefs(); };
   $('#wSaveFile').onclick = () => saveFile(slug() + '.json', serialize(), 'World file saved.');
   $('#wSavePng').onclick = savePng;
+  // Exactly the text that was kept, which may not open here at all; storage is left as it is.
+  $('#wOldSaveLink').onclick = () => { const s = keptAside(); if (s === null) { syncOldSave(); return; } saveFile('terra-incognita-old-save.json', s, 'Old save downloaded.'); };
   $('#wOpenFile').onclick = () => $('#wFile').click();
   $('#wFile').onchange = e => {
     const file = e.target.files && e.target.files[0]; if (!file) return;
@@ -2221,9 +2229,10 @@ function init() {
     e.preventDefault(); items[(to + items.length) % items.length].focus();
   });
   $('#codexQ').addEventListener('input', renderCodex);
+  syncOldSave();
   if (firstRun) {
     const kept = unreadable !== null;
-    if (saveLocal() && kept) toast('Your saved world could not be read, so a new one is open. The old save is kept in this browser.', null, 9000);
+    if (saveLocal() && kept) toast('Your saved world could not be read, so a new one is open. The old save is kept in this browser: Download the old save is in the World tab.', null, 12000);
   }
   refreshPlate();
   new ResizeObserver(resize).observe($('#mapwrap'));

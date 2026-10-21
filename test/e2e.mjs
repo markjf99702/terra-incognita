@@ -10,7 +10,7 @@
 // valley) that leave the lakes be, a coast named after the sea it is on, a coast drawn smooth that comes out
 // smooth, sea names clear of the scale bar and the latitudes down the left edge, and places the sea rises over; and
 // the README's count of the kinds of land. Last, a phone held sideways, a browser that won't keep the autosave, and
-// saved worlds the page can't read or that a newer version wrote.
+// saved worlds the page can't read or that a newer version wrote, kept aside and given back by Download the old save.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -576,6 +576,33 @@ ok(cutOpen.kept === cutShort && cutOpen.now.version === 1 && cutOpen.toast.start
 // So is one saved by a newer version, rather than opened half-read and then saved back over as this version.
 const future = JSON.stringify({ ...saved, version: 2, name: 'A future world' }), futureOpen = await openStored(future);
 ok(futureOpen.kept === future && futureOpen.name !== 'A future world' && futureOpen.now.version === 1, 'and so is one saved by a newer version');
+
+// The toast points at Download the old save in the World tab, which saves the kept text as a file, exactly as it was
+// stored, and changes nothing in storage. The link is there only while a save is kept aside.
+const oldSaveHidden = (pg) => pg.evaluate(() => document.getElementById('wOldSave').hidden);
+ok(await oldSaveHidden(page), 'there is no Download the old save in a browser whose save opened');
+const oldCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
+const oldText = JSON.stringify({ ...saved, name: 'Øresund — Ōmi' }).slice(0, 5000);
+await oldCtx.addInitScript((s) => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('terra-incognita/world/v1', s); } }, oldText);
+const oldPage = watch(await oldCtx.newPage());
+await oldPage.goto(base);
+const oldToast = await oldPage.textContent('#toast');
+await oldPage.click('#tab-world');
+ok(oldToast.includes('Download the old save is in the World tab') && await oldPage.locator('#wOldSaveLink').isVisible(), 'the toast points at Download the old save in the World tab, and it is there');
+const storage = () => oldPage.evaluate(() => JSON.stringify(Object.entries(localStorage).sort()));
+const storedBefore = await storage();
+const [oldDl] = await Promise.all([oldPage.waitForEvent('download'), oldPage.click('#wOldSaveLink')]);
+const oldBytes = await readFile(await oldDl.path());
+ok(oldBytes.equals(Buffer.from(oldText, 'utf8')) && oldDl.suggestedFilename() === 'terra-incognita-old-save.json', `it saves exactly the text that was kept, as ${oldDl.suggestedFilename()} (${oldBytes.length} bytes)`);
+ok((await storage()) === storedBefore, 'and leaves storage as it was');
+await oldPage.reload();
+await oldPage.click('#tab-world');
+ok(await oldPage.locator('#wOldSaveLink').isVisible() && await oldPage.locator('#toast').isHidden(), 'it is still there on the next visit, with no toast this time');
+await oldPage.evaluate(() => localStorage.removeItem('terra-incognita/world/unreadable'));
+await oldPage.reload();
+await oldPage.click('#tab-world');
+ok(await oldSaveHidden(oldPage), 'and gone once no old save is kept');
+await oldCtx.close();
 
 const real = problems.filter((p) => !/ERR_INTERNET_DISCONNECTED|net::ERR_FAILED/.test(p));
 ok(real.length === 0, 'no errors and nothing loaded from elsewhere' + (real.length ? ':\n' + real.join('\n') : ''));
